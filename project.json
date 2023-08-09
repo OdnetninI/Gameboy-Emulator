@@ -1,0 +1,14 @@
+{
+  "langrev": "1",
+  "warnings": [ "no-unused" ],
+  "dependency-search-paths": [ "lib" ],
+  "dependencies": [ "raylib" ],
+  "authors": [ "OdnentinI <git@edujgh.net>" ],
+  "version": "0.1.0",
+  "sources": [ "src/**" ],
+  "targets": {
+    "gb": {
+      "type": "executable"
+    }
+  }
+}
