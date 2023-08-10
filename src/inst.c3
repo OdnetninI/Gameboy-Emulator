@@ -38,6 +38,8 @@ fn void opcode_unimplemented(Cpu* cpu, Inst* inst) {
   io::printfn("Function of opcode %s%02x not implemented", inst.isCB ? "CB " : "", inst.opcode)!!;
 }
 
+fn void nop(Cpu* cpu, Inst* inst) { ; }
+
 // Generic methods
 fn void cmpRegImm(Cpu* cpu, Inst* inst, Reg _data) {
   UInt8 data = cpu.readReg(_data);
@@ -51,8 +53,48 @@ fn void cmpRegReg(Cpu* cpu, Inst* inst, Reg _data, Reg _cmp) {
   cpu.setFlags(data == cmp, true, (data & 0x0F) < (cmp & 0xF), data < cmp);
 }
 
+fn void addRegReg(Cpu* cpu, Inst* inst, Reg _dest, Reg _src) {
+  UInt8 dest = cpu.readReg(_dest);
+  UInt8 src = cpu.readReg(_src);
+  UInt8 value = dest + src;
+  cpu.writeReg(_dest, value);
+  cpu.setFlags(value == 0x00, false, ((dest & 0x0F) + (src & 0xF)) > 0x0F, (value < dest) || (value < src));
+}
+
+fn void andRegReg(Cpu* cpu, Inst* inst, Reg _dest, Reg _src) {
+  UInt8 dest = cpu.readReg(_dest);
+  UInt8 src = cpu.readReg(_src);
+  UInt8 value = dest & src;
+  cpu.writeReg(_dest, value);
+  cpu.setFlags(value == 0x00, false, true, false);
+}
+
+fn void andRegImm(Cpu* cpu, Inst* inst, Reg _dest) {
+  UInt8 dest = cpu.readReg(_dest);
+  UInt8 src = cpu.system.mem.read(inst.pc + 1);
+  UInt8 value = dest & src;
+  cpu.writeReg(_dest, value);
+  cpu.setFlags(value == 0x00, false, true, false);
+}
+
+fn void orRegReg(Cpu* cpu, Inst* inst, Reg _dest, Reg _src) {
+  UInt8 dest = cpu.readReg(_dest);
+  UInt8 src = cpu.readReg(_src);
+  UInt8 value = dest | src;
+  cpu.writeReg(_dest, value);
+  cpu.setFlags(value == 0x00, false, false, false);
+}
+
+fn void subRegReg(Cpu* cpu, Inst* inst, Reg _dest, Reg _src) {
+  UInt8 dest = cpu.readReg(_dest);
+  UInt8 src = cpu.readReg(_src);
+  cpu.writeReg(_dest, dest - src);
+  cpu.setFlags(dest == src, true, (dest & 0x0F) < (src & 0xF), dest < src);
+}
+
 fn void setInterrupts(Cpu* cpu, Inst* inst, bool enabled) {
-  cpu.interrupts_enabled = enabled;
+  io::printfn("%s Interruptions", enabled ? "Enabling" : "Disabling");
+  cpu.ime = enabled;
 }
 
 fn void pushReg16(Cpu* cpu, Inst* inst, Reg16 reg) {
@@ -158,6 +200,21 @@ fn void jumpImmRel(Cpu* cpu, Inst* inst, Flags flag) {
   }
 }
 
+fn void jumpImm(Cpu* cpu, Inst* inst, Flags flag) {
+  bool jump = cpu.readFlag(flag);
+  if (jump) {
+    inst.changedPC = true;
+    UInt16 newpc = cpu.system.mem.read16(inst.pc + 1);
+    cpu.writeReg16(PC, newpc);
+  }
+}
+
+fn void jumpReg(Cpu* cpu, Inst* inst, Reg16 dest) {
+  inst.changedPC = true;
+  UInt16 newpc = cpu.readReg16(dest);
+  cpu.writeReg16(PC, newpc);
+}
+
 fn void callImm(Cpu* cpu, Inst* inst, Flags flag) {
   bool jump = cpu.readFlag(flag);
   if (jump) {
@@ -175,6 +232,19 @@ fn void ret(Cpu* cpu, Inst* inst, Flags flag) {
     UInt16 new_pc = pop16(cpu, inst);
     cpu.writeReg16(PC, new_pc);
   }
+}
+
+fn void reti(Cpu* cpu, Inst* inst) {
+  inst.changedPC = true;
+  UInt16 new_pc = pop16(cpu, inst);
+  cpu.writeReg16(PC, new_pc);
+  cpu.ime = true;
+}
+
+fn void rst(Cpu* cpu, Inst* inst, UInt16 addr) {
+  inst.changedPC = true;
+  push16(cpu, inst, inst.pc + inst_size[inst.opcode]);
+  cpu.writeReg16(PC, addr);
 }
 
 fn void incReg(Cpu* cpu, Inst* inst, Reg reg) {
@@ -239,6 +309,7 @@ fn void init() {
   functions_CB[0..255] = &opcode_unimplemented;
 
   /* Insts */
+  functions[0x00] = fn (cpu, inst) => nop(cpu, inst);
   functions[0x01] = fn (cpu, inst) => imm2Reg16(cpu, inst, BC);
   functions[0x02] = fn (cpu, inst) => reg2MemReg16(cpu, inst, A, BC);
   functions[0x03] = fn (cpu, inst) => incReg16(cpu, inst, BC);
@@ -362,6 +433,32 @@ fn void init() {
   functions[0x7e] = fn (cpu, inst) => reg2Reg(cpu, inst, A, I_HL);
   functions[0x7f] = fn (cpu, inst) => reg2Reg(cpu, inst, A, A);
 
+  functions[0x80] = fn (cpu, inst) => addRegReg(cpu, inst, A, B);
+  functions[0x81] = fn (cpu, inst) => addRegReg(cpu, inst, A, C);
+  functions[0x82] = fn (cpu, inst) => addRegReg(cpu, inst, A, D);
+  functions[0x83] = fn (cpu, inst) => addRegReg(cpu, inst, A, E);
+  functions[0x84] = fn (cpu, inst) => addRegReg(cpu, inst, A, H);
+  functions[0x85] = fn (cpu, inst) => addRegReg(cpu, inst, A, L);
+  functions[0x86] = fn (cpu, inst) => addRegReg(cpu, inst, A, I_HL);
+  functions[0x87] = fn (cpu, inst) => addRegReg(cpu, inst, A, A);
+
+  functions[0x90] = fn (cpu, inst) => subRegReg(cpu, inst, A, B);
+  functions[0x91] = fn (cpu, inst) => subRegReg(cpu, inst, A, C);
+  functions[0x92] = fn (cpu, inst) => subRegReg(cpu, inst, A, D);
+  functions[0x93] = fn (cpu, inst) => subRegReg(cpu, inst, A, E);
+  functions[0x94] = fn (cpu, inst) => subRegReg(cpu, inst, A, H);
+  functions[0x95] = fn (cpu, inst) => subRegReg(cpu, inst, A, L);
+  functions[0x96] = fn (cpu, inst) => subRegReg(cpu, inst, A, I_HL);
+  functions[0x97] = fn (cpu, inst) => subRegReg(cpu, inst, A, A);
+
+  functions[0xa0] = fn (cpu, inst) => andRegReg(cpu, inst, A, B);
+  functions[0xa1] = fn (cpu, inst) => andRegReg(cpu, inst, A, C);
+  functions[0xa2] = fn (cpu, inst) => andRegReg(cpu, inst, A, D);
+  functions[0xa3] = fn (cpu, inst) => andRegReg(cpu, inst, A, E);
+  functions[0xa4] = fn (cpu, inst) => andRegReg(cpu, inst, A, H);
+  functions[0xa5] = fn (cpu, inst) => andRegReg(cpu, inst, A, L);
+  functions[0xa6] = fn (cpu, inst) => andRegReg(cpu, inst, A, I_HL);
+  functions[0xa7] = fn (cpu, inst) => andRegReg(cpu, inst, A, A);
   functions[0xa8] = fn (cpu, inst) => xorReg(cpu, inst, A, B);
   functions[0xa9] = fn (cpu, inst) => xorReg(cpu, inst, A, C);
   functions[0xaa] = fn (cpu, inst) => xorReg(cpu, inst, A, D);
@@ -371,6 +468,14 @@ fn void init() {
   functions[0xae] = fn (cpu, inst) => xorReg(cpu, inst, A, I_HL);
   functions[0xaf] = fn (cpu, inst) => xorReg(cpu, inst, A, A);
 
+  functions[0xb0] = fn (cpu, inst) => orRegReg(cpu, inst, A, B);
+  functions[0xb1] = fn (cpu, inst) => orRegReg(cpu, inst, A, C);
+  functions[0xb2] = fn (cpu, inst) => orRegReg(cpu, inst, A, D);
+  functions[0xb3] = fn (cpu, inst) => orRegReg(cpu, inst, A, E);
+  functions[0xb4] = fn (cpu, inst) => orRegReg(cpu, inst, A, H);
+  functions[0xb5] = fn (cpu, inst) => orRegReg(cpu, inst, A, L);
+  functions[0xb6] = fn (cpu, inst) => orRegReg(cpu, inst, A, I_HL);
+  functions[0xb7] = fn (cpu, inst) => orRegReg(cpu, inst, A, A);
   functions[0xb8] = fn (cpu, inst) => cmpRegReg(cpu, inst, A, B);
   functions[0xb9] = fn (cpu, inst) => cmpRegReg(cpu, inst, A, C);
   functions[0xba] = fn (cpu, inst) => cmpRegReg(cpu, inst, A, D);
@@ -382,34 +487,50 @@ fn void init() {
 
   functions[0xc0] = fn (cpu, inst) => ret(cpu, inst, NZ);
   functions[0xc1] = fn (cpu, inst) => popReg16(cpu, inst, BC);
+  functions[0xc2] = fn (cpu, inst) => jumpImm(cpu, inst, NZ);
+  functions[0xc3] = fn (cpu, inst) => jumpImm(cpu, inst, NONE);
   functions[0xc4] = fn (cpu, inst) => callImm(cpu, inst, NZ);
   functions[0xc5] = fn (cpu, inst) => pushReg16(cpu, inst, BC);
+  functions[0xc7] = fn (cpu, inst) => rst(cpu, inst, 0x00);
   functions[0xc8] = fn (cpu, inst) => ret(cpu, inst, Z);
   functions[0xc9] = fn (cpu, inst) => ret(cpu, inst, NONE);
+  functions[0xca] = fn (cpu, inst) => jumpImm(cpu, inst, Z);
   functions[0xcc] = fn (cpu, inst) => callImm(cpu, inst, Z);
   functions[0xcd] = fn (cpu, inst) => callImm(cpu, inst, NONE);
+  functions[0xcf] = fn (cpu, inst) => rst(cpu, inst, 0x08);
 
   functions[0xd0] = fn (cpu, inst) => ret(cpu, inst, NC);
   functions[0xd1] = fn (cpu, inst) => popReg16(cpu, inst, DE);
+  functions[0xd2] = fn (cpu, inst) => jumpImm(cpu, inst, NC);
   functions[0xd4] = fn (cpu, inst) => callImm(cpu, inst, NC);
   functions[0xd5] = fn (cpu, inst) => pushReg16(cpu, inst, DE);
+  functions[0xd7] = fn (cpu, inst) => rst(cpu, inst, 0x10);
   functions[0xd8] = fn (cpu, inst) => ret(cpu, inst, C);
+  functions[0xd9] = fn (cpu, inst) => reti(cpu, inst);
+  functions[0xda] = fn (cpu, inst) => jumpImm(cpu, inst, C);
   functions[0xdc] = fn (cpu, inst) => callImm(cpu, inst, C);
+  functions[0xdf] = fn (cpu, inst) => rst(cpu, inst, 0x18);
 
   functions[0xe0] = fn (cpu, inst) => reg2MemImm8(cpu, inst, A, 0xFF00);
   functions[0xe1] = fn (cpu, inst) => popReg16(cpu, inst, HL);
   functions[0xe2] = fn (cpu, inst) => reg2MemReg(cpu, inst, A, C, 0xFF00);
   functions[0xe5] = fn (cpu, inst) => pushReg16(cpu, inst, HL);
+  functions[0xe6] = fn (cpu, inst) => andRegImm(cpu, inst, A);
+  functions[0xe7] = fn (cpu, inst) => rst(cpu, inst, 0x20);
+  functions[0xe9] = fn (cpu, inst) => jumpReg(cpu, inst, HL);
   functions[0xea] = fn (cpu, inst) => reg2MemImm(cpu, inst, A);
+  functions[0xef] = fn (cpu, inst) => rst(cpu, inst, 0x28);
 
   functions[0xf0] = fn (cpu, inst) => memImm82Reg(cpu, inst, A, 0xFF00);
   functions[0xf1] = fn (cpu, inst) => popReg16(cpu, inst, AF);
   functions[0xf2] = fn (cpu, inst) => memRegOff2Reg(cpu, inst, A, C, 0xFF00);
   functions[0xf3] = fn (cpu, inst) => setInterrupts(cpu, inst, false);
   functions[0xf5] = fn (cpu, inst) => pushReg16(cpu, inst, AF);
+  functions[0xf7] = fn (cpu, inst) => rst(cpu, inst, 0x30);
   functions[0xfa] = fn (cpu, inst) => memImm2Reg(cpu, inst, A);
   functions[0xfb] = fn (cpu, inst) => setInterrupts(cpu, inst, true);
   functions[0xfe] = fn (cpu, inst) => cmpRegImm(cpu, inst, A);
+  functions[0xff] = fn (cpu, inst) => rst(cpu, inst, 0x38);
 
   /* CB Insts */
   functions_CB[0x00] = fn (cpu, inst) => rotateLeft(cpu, inst, B);
@@ -560,8 +681,8 @@ UInt8[256] inst_size = {
 /* B */  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 /* C */  1, 1, 3, 3, 3, 1, 2, 1, 1, 1, 3, 2, 3, 3, 2, 1,
 /* D */  1, 1, 3, 1, 3, 1, 2, 1, 1, 1, 3, 1, 3, 1, 2, 1,
-/* E */  2, 1, 2, 1, 1, 1, 2, 1, 2, 1, 3, 1, 1, 1, 2, 1,
-/* F */  2, 1, 2, 1, 1, 1, 2, 1, 2, 1, 3, 1, 1, 1, 2, 1,
+/* E */  2, 1, 1, 1, 1, 1, 2, 1, 2, 1, 3, 1, 1, 1, 2, 1,
+/* F */  2, 1, 1, 1, 1, 1, 2, 1, 2, 1, 3, 1, 1, 1, 2, 1,
 };
 
 String[256] mnemonics = {

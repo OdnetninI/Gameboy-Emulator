@@ -2,8 +2,9 @@ module types;
 
 def Int8 = ichar;
 def UInt8 = char;
+def Int16 = short;
 def UInt16 = ushort;
-def Uint64 = ulong;
+def UInt64 = ulong;
 
 def Register = UInt8;
 def Register16 = UInt16;

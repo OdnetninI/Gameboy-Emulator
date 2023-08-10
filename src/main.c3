@@ -2,27 +2,30 @@ import std::io;
 
 import types;
 
-import lcd;
 import inst;
 import system;
 
 fn void main() {
   inst::init();
 
-  Lcd lcd;
-  //lcd.init();
-
   system::System system;
   system.cpu.init(&system);
-  system.mem.system = &system;
+  system.mem.init(&system);
+  system.ppu.init(&system);
+  system.lcd.init();
 
   io::File! bios_file = io::file::open("roms/dmg_boot.bin", "rb");
-  bios_file.read(system.mem.memory[:256])!!;
+  bios_file.read(&system.mem.bios)!!;
   bios_file.close()!!;
 
-  for (; system.cpu.regs.pc < 256;) {
-    system.cpu.print();
-    inst::Inst inst = system.cpu.fetch();
-    system.cpu.exec(inst);
+  io::File! game_file = io::file::open("roms/tetris.gb", "rb");
+  game_file.read(&system.mem.memory)!!;
+  game_file.close()!!;
+
+  while (true) {
+    system.lcd.update();
+    system.tick();
   }
+
+  //system.lcd.close();
 }

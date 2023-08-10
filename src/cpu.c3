@@ -35,6 +35,15 @@ enum Flags {
   NONE,
 }
 
+enum Interrupts {
+  I_NONE,
+  I_VBLANK,
+  I_LCD_STAT,
+  I_TIMER,
+  I_SERIAL,
+  I_JOYPAD,
+}
+
 /* For the future !!!
 macro @addRegister(b, c, bc) {
   bitstruct : Register16 @overlap {
@@ -77,15 +86,80 @@ struct Registers {
 
 struct Cpu {
   Registers regs;
-  Uint64 tick;
+  UInt64 tick_counter;
   System* system;
-  bool interrupts_enabled;
+  bool ime;
 }
 
 fn void Cpu.init(Cpu* cpu, System* system) {
   cpu.system = system;
   cpu.regs.pc = 0x0000;
-  cpu.interrupts_enabled = false;
+  cpu.ime = false;
+}
+
+fn void Cpu.tick(Cpu* cpu, UInt64 tick) {
+  if (cpu.ime) {
+    Interrupts interrupt = cpu.getInterrupt();
+    cpu.interrupt(interrupt);
+  }
+  if (tick >= cpu.tick_counter) {
+    //if (cpu.regs.pc > 0xff) cpu.print();
+    //cpu.print();
+    inst::Inst inst = cpu.fetch();
+    cpu.exec(inst);
+  }
+}
+
+fn Interrupts Cpu.getInterrupt(Cpu* cpu) {
+  UInt8 _if = cpu.system.mem.read(0xFF0F);
+  if ((_if & (1 << 0)) != 0x00) return I_VBLANK;
+  if ((_if & (1 << 1)) != 0x00) return I_LCD_STAT;
+  if ((_if & (1 << 2)) != 0x00) return I_TIMER;
+  if ((_if & (1 << 3)) != 0x00) return I_SERIAL;
+  if ((_if & (1 << 4)) != 0x00) return I_JOYPAD;
+  return I_NONE;
+}
+
+fn void Cpu.interrupt(Cpu* cpu, Interrupts interrupt) {
+  UInt8 _if = cpu.system.mem.read(0xFF0F);
+  switch(interrupt) {
+    case I_NONE: return;
+    case I_VBLANK: _if = _if & (char)~(1 << 0);
+    case I_LCD_STAT: _if = _if & (char)~(1 << 1);
+    case I_TIMER: _if = _if & (char)~(1 << 2);
+    case I_SERIAL: _if = _if & (char)~(1 << 3);
+    case I_JOYPAD: _if = _if & (char)~(1 << 4);
+  }
+  cpu.system.mem.write(0xFF0F, _if);
+
+  UInt8 ie = cpu.system.mem.read(0xFFFF);
+  switch(interrupt) {
+    case I_NONE: return;
+    case I_VBLANK:
+      if ((ie & (1 << 0)) == 0x00) return;
+    case I_LCD_STAT:
+      if ((ie & (1 << 1)) == 0x00) return;
+    case I_TIMER:
+      if ((ie & (1 << 2)) == 0x00) return;
+    case I_SERIAL:
+      if ((ie & (1 << 3)) == 0x00) return;
+    case I_JOYPAD:
+      if ((ie & (1 << 4)) == 0x00) return;
+  }
+  io::printfn("Doing %s", interrupt);
+  cpu.ime = false;
+  cpu.tick_counter += 2;
+  inst::push16(cpu, null, cpu.regs.pc);
+  cpu.tick_counter += 2;
+  switch(interrupt) {
+    case I_VBLANK: cpu.regs.pc = 0x0040; io::printfn("Goint to 0x0040");
+    case I_LCD_STAT: cpu.regs.pc = 0x0048;
+    case I_TIMER: cpu.regs.pc = 0x0050;
+    case I_SERIAL: cpu.regs.pc = 0x0058;
+    case I_JOYPAD: cpu.regs.pc = 0x0060;
+    default: io::printfn("Invalid interrupt");
+  }
+  cpu.tick_counter += 1;
 }
 
 fn inst::Inst Cpu.fetch(Cpu* cpu) {
@@ -116,18 +190,19 @@ fn inst::Inst Cpu.fetch(Cpu* cpu) {
 
 fn void Cpu.exec(Cpu* cpu, inst::Inst inst) {
   UInt16 pc = cpu.readReg16(PC);
-  io::printfn("Executing %s", inst.mnemonic)!!;
+  //if (cpu.regs.pc > 0xff) io::printfn("Executing %s", inst.mnemonic)!!;
+  //io::printfn("Executing %s", inst.mnemonic)!!;
   inst.exec(cpu, &inst);
 
   // Apply latency and increase PC if it was not already updated
   UInt8 opcode = inst.isCB ? 0xCB : inst.opcode;
   if (inst.changedPC) {
-    cpu.tick += inst::taken_latencies[opcode];
+    cpu.tick_counter += inst::taken_latencies[opcode];
   }
   else {
     UInt16 avance = inst::inst_size[opcode];
     cpu.writeReg16(PC, pc + inst::inst_size[opcode]);
-    cpu.tick += inst::latencies[opcode];
+    cpu.tick_counter += inst::latencies[opcode];
   }
 }
 
@@ -145,8 +220,8 @@ fn Register Cpu.readReg(Cpu* cpu, Reg reg) {
     case F: return cpu.regs.f;
     case A: return cpu.regs.a;
     case I_HL: return cpu.system.mem.read(cpu.regs.hl);
-    case I_HL_MINUS: Register value = cpu.system.mem.read(cpu.regs.hl); cpu.regs.hl--; return value;
-    case I_HL_PLUS: Register value = cpu.system.mem.read(cpu.regs.hl); cpu.regs.hl++; return value;
+    case I_HL_MINUS: Register value = cpu.system.mem.read(cpu.regs.hl); cpu.regs.hl-= 1; return value;
+    case I_HL_PLUS: Register value = cpu.system.mem.read(cpu.regs.hl); cpu.regs.hl+= 1; return value;
     default: 
       io::printfn("[CPU] Cannot read unkwown registr %d", reg);
       return 0;
@@ -164,8 +239,8 @@ fn void Cpu.writeReg(Cpu* cpu, Reg reg, Register value) {
     case F: cpu.regs.f = value;
     case A: cpu.regs.a = value;
     case I_HL: return cpu.system.mem.write(cpu.regs.hl, value);
-    case I_HL_MINUS: cpu.system.mem.write(cpu.regs.hl, value); cpu.regs.hl--;
-    case I_HL_PLUS: cpu.system.mem.write(cpu.regs.hl, value); cpu.regs.hl++;
+    case I_HL_MINUS: cpu.system.mem.write(cpu.regs.hl, value); cpu.regs.hl-= 1;
+    case I_HL_PLUS: cpu.system.mem.write(cpu.regs.hl, value); cpu.regs.hl+= 1;
     default: 
       io::printfn("[CPU] Cannot write %02x unkwown registr %d", value, reg);
   }
@@ -179,8 +254,8 @@ fn Register16 Cpu.readReg16(Cpu* cpu, Reg16 reg) {
     case SP: return cpu.regs.sp;
     case AF: return cpu.regs.af;
     case PC: return cpu.regs.pc;
-    case HL_MINUS: Register16 value = cpu.regs.hl; cpu.regs.hl--; return value;
-    case HL_PLUS: Register16 value = cpu.regs.hl; cpu.regs.hl++; return value;
+    case HL_MINUS: Register16 value = cpu.regs.hl; cpu.regs.hl -= 1; return value;
+    case HL_PLUS: Register16 value = cpu.regs.hl; cpu.regs.hl += 1; return value;
     
     default: 
       io::printfn("[CPU] Cannot read16 unkwown registr %d", reg);
@@ -229,6 +304,6 @@ fn void Cpu.setFlags(Cpu* cpu, bool zero, bool neg, bool half, bool carry) {
   Print the current state
 */
 fn void Cpu.print(Cpu* cpu) {
-  io::printfn("%08d -> PC(%04x) SP(%04x) BC(%04x) DE(%04x) HL(%04x) AF(%04x) [Z:%s N:%s H:%s C:%s]",
-              cpu.tick, cpu.regs.pc, cpu.regs.sp, cpu.regs.bc, cpu.regs.bc, cpu.regs.hl, cpu.regs.af, cpu.regs.zero, cpu.regs.neg, cpu.regs.half, cpu.regs.carry);
+  io::printfn("%08d -> PC(%04x) SP(%04x) BC(%04x) DE(%04x) HL(%04x) AF(%04x) [Z:%s N:%s H:%s C:%s IME:%s]",
+              cpu.tick_counter, cpu.regs.pc, cpu.regs.sp, cpu.regs.bc, cpu.regs.de, cpu.regs.hl, cpu.regs.af, cpu.regs.zero, cpu.regs.neg, cpu.regs.half, cpu.regs.carry, cpu.ime);
 }
