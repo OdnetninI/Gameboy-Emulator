@@ -6,6 +6,7 @@ import cpu;
 import mem;
 import ppu;
 import lcd;
+import input;
 
 struct System {
   Cpu cpu;
@@ -17,6 +18,7 @@ struct System {
 }
 
 fn void System.tick(System* system) {
+  input::updateKeys(system);
   system.cpu.tick(system.tick_counter);
   system.ppu.tick(system.tick_counter);
   system.tick_counter++;

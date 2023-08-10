@@ -146,13 +146,13 @@ fn void Cpu.interrupt(Cpu* cpu, Interrupts interrupt) {
     case I_JOYPAD:
       if ((ie & (1 << 4)) == 0x00) return;
   }
-  io::printfn("Doing %s", interrupt);
+  //io::printfn("Doing %s", interrupt);
   cpu.ime = false;
   cpu.tick_counter += 2;
   inst::push16(cpu, null, cpu.regs.pc);
   cpu.tick_counter += 2;
   switch(interrupt) {
-    case I_VBLANK: cpu.regs.pc = 0x0040; io::printfn("Goint to 0x0040");
+    case I_VBLANK: cpu.regs.pc = 0x0040;
     case I_LCD_STAT: cpu.regs.pc = 0x0048;
     case I_TIMER: cpu.regs.pc = 0x0050;
     case I_SERIAL: cpu.regs.pc = 0x0058;

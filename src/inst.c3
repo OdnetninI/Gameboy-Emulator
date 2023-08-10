@@ -61,6 +61,62 @@ fn void addRegReg(Cpu* cpu, Inst* inst, Reg _dest, Reg _src) {
   cpu.setFlags(value == 0x00, false, ((dest & 0x0F) + (src & 0xF)) > 0x0F, (value < dest) || (value < src));
 }
 
+fn void adcRegReg(Cpu* cpu, Inst* inst, Reg _dest, Reg _src) {
+  UInt8 dest = cpu.readReg(_dest);
+  UInt8 src = cpu.readReg(_src);
+  UInt8 carry = cpu.readFlag(C) ? 1 : 0;
+  UInt8 value = dest + src + carry;
+  cpu.writeReg(_dest, value);
+  cpu.setFlags(value == 0x00, false, ((dest & 0x0F) + (src & 0xF) + carry) > 0x0F, (value < dest) || (value < src));
+}
+
+fn void adcRegImm8(Cpu* cpu, Inst* inst, Reg _dest) {
+  UInt8 dest = cpu.readReg(_dest);
+  UInt8 src = cpu.system.mem.read(inst.pc + 1);
+  UInt8 carry = cpu.readFlag(C) ? 1 : 0;
+  UInt8 value = dest + src + carry;
+  cpu.writeReg(_dest, value);
+  cpu.setFlags(value == 0x00, false, ((dest & 0x0F) + (src & 0xF) + carry) > 0x0F, (value < dest) || (value < src));
+}
+
+fn void addReg16Reg16(Cpu* cpu, Inst* inst, Reg16 _dest, Reg16 _src) {
+  UInt16 dest = cpu.readReg16(_dest);
+  UInt16 src = cpu.readReg16(_src);
+  UInt16 value = dest + src;
+  cpu.writeReg16(_dest, value);
+  cpu.setFlags(cpu.readFlag(Z), false, ((dest & 0x7FF) + (src & 0x7FF)) > 0x800, (value < src) || (value < dest));
+}
+
+fn void addReg16Imm8(Cpu* cpu, Inst* inst, Reg16 _dest) {
+  UInt16 dest = cpu.readReg16(_dest);
+  Int8 src = cpu.system.mem.read(inst.pc + 1);
+  UInt16 value = dest + src;
+  cpu.writeReg16(_dest, value);
+  // TODO update flags H and C correctly
+  cpu.setFlags(false, false, false, false);
+}
+
+fn void reg162Reg16(Cpu* cpu, Inst* inst, Reg16 _dest, Reg16 _src) {
+  UInt16 src = cpu.readReg16(_src);
+  cpu.writeReg16(_dest, src);
+}
+
+fn void reg162Reg16addImm8(Cpu* cpu, Inst* inst, Reg16 _dest, Reg16 _src) {
+  UInt16 src = cpu.readReg16(_src);
+  Int8 offset = cpu.system.mem.read(inst.pc + 1);
+  cpu.writeReg16(_dest, src + offset);
+  // TODO: update H and C flags correctly
+  cpu.setFlags(false, false, false, false);
+}
+
+fn void addRegImm8(Cpu* cpu, Inst* inst, Reg _dest) {
+  UInt8 dest = cpu.readReg(_dest);
+  UInt8 src = cpu.system.mem.read(inst.pc + 1);
+  UInt8 value = dest + src;
+  cpu.writeReg(_dest, value);
+  cpu.setFlags(value == 0x00, false, ((dest & 0x0F) + (src & 0xF)) > 0x0F, (value < dest) || (value < src));
+}
+
 fn void andRegReg(Cpu* cpu, Inst* inst, Reg _dest, Reg _src) {
   UInt8 dest = cpu.readReg(_dest);
   UInt8 src = cpu.readReg(_src);
@@ -85,6 +141,14 @@ fn void orRegReg(Cpu* cpu, Inst* inst, Reg _dest, Reg _src) {
   cpu.setFlags(value == 0x00, false, false, false);
 }
 
+fn void orRegImm8(Cpu* cpu, Inst* inst, Reg _dest) {
+  UInt8 dest = cpu.readReg(_dest);
+  UInt8 src = cpu.system.mem.read(inst.pc + 1);
+  UInt8 value = dest | src;
+  cpu.writeReg(_dest, value);
+  cpu.setFlags(value == 0x00, false, false, false);
+}
+
 fn void subRegReg(Cpu* cpu, Inst* inst, Reg _dest, Reg _src) {
   UInt8 dest = cpu.readReg(_dest);
   UInt8 src = cpu.readReg(_src);
@@ -92,8 +156,15 @@ fn void subRegReg(Cpu* cpu, Inst* inst, Reg _dest, Reg _src) {
   cpu.setFlags(dest == src, true, (dest & 0x0F) < (src & 0xF), dest < src);
 }
 
+fn void subRegImm8(Cpu* cpu, Inst* inst, Reg _dest) {
+  UInt8 dest = cpu.readReg(_dest);
+  UInt8 src = cpu.system.mem.read(inst.pc + 1);
+  cpu.writeReg(_dest, dest - src);
+  cpu.setFlags(dest == src, true, (dest & 0x0F) < (src & 0xF), dest < src);
+}
+
 fn void setInterrupts(Cpu* cpu, Inst* inst, bool enabled) {
-  io::printfn("%s Interruptions", enabled ? "Enabling" : "Disabling");
+  //io::printfn("%s Interruptions", enabled ? "Enabling" : "Disabling");
   cpu.ime = enabled;
 }
 
@@ -116,6 +187,12 @@ fn void imm2Reg(Cpu* cpu, Inst* inst, Reg reg) {
   UInt16 imm_addr = inst.pc + 1;
   UInt8 imm = cpu.system.mem.read(imm_addr);
   cpu.writeReg(reg, imm);
+}
+
+fn void reg162MemImm16(Cpu* cpu, Inst* inst, Reg16 reg) {
+  UInt16 addr = cpu.system.mem.read16(inst.pc + 1);
+  UInt16 data = cpu.readReg16(reg);
+  cpu.system.mem.write16(addr, data);
 }
 
 fn void memReg2Reg(Cpu* cpu, Inst* inst, Reg reg, Reg16 _addr) {
@@ -186,6 +263,28 @@ fn void xorReg(Cpu* cpu, Inst* inst, Reg dest, Reg src) {
   UInt8 value = cpu.readReg(dest);
   UInt8 xorvalue = cpu.readReg(src);
   UInt8 result = value ^ xorvalue;
+  cpu.writeReg(dest, result);
+  cpu.setFlags(result == 0x00, false, false, false);
+}
+
+fn void xorRegImm8(Cpu* cpu, Inst* inst, Reg dest) {
+  UInt8 value = cpu.readReg(dest);
+  UInt8 xorvalue = cpu.system.mem.read(inst.pc + 1);
+  UInt8 result = value ^ xorvalue;
+  cpu.writeReg(dest, result);
+  cpu.setFlags(result == 0x00, false, false, false);
+}
+
+fn void cplReg(Cpu* cpu, Inst* inst, Reg dest) {
+  UInt8 value = cpu.readReg(dest);
+  UInt8 result = ~value;
+  cpu.writeReg(dest, result);
+  cpu.setFlags(cpu.readFlag(Z), true, true, cpu.readFlag(C));
+}
+
+fn void swapReg(Cpu* cpu, Inst* inst, Reg dest) {
+  UInt8 value = cpu.readReg(dest);
+  UInt8 result = ((value >> 4) & 0x0F) | ((value << 4) & 0xF0);
   cpu.writeReg(dest, result);
   cpu.setFlags(result == 0x00, false, false, false);
 }
@@ -275,8 +374,47 @@ fn void decReg16(Cpu* cpu, Inst* inst, Reg16 reg) {
 
 fn void bitReg(Cpu* cpu, Inst* inst, Reg reg, UInt8 bit) {
   UInt8 value = cpu.readReg(reg);
-  UInt8 test = ~(1 << bit);
+  UInt8 test = (1 << bit);
   cpu.setFlags(value & test != 0x00, false, true, cpu.regs.carry);
+}
+
+fn void resBitReg(Cpu* cpu, Inst* inst, Reg reg, UInt8 bit) {
+  UInt8 value = cpu.readReg(reg);
+  UInt8 mask = ~(1 << bit);
+  UInt8 result = value & mask;
+  cpu.writeReg(reg, result);
+}
+
+fn void setBitReg(Cpu* cpu, Inst* inst, Reg reg, UInt8 bit) {
+  UInt8 value = cpu.readReg(reg);
+  UInt8 set = (1 << bit);
+  UInt8 result = value | set;
+  cpu.writeReg(reg, result);
+}
+
+fn void sraReg(Cpu* cpu, Inst* inst, Reg reg) {
+  UInt8 value = cpu.readReg(reg);
+  UInt8 new_carry = value & 0x1;
+  UInt8 result = (value >> 1) | (value & 0x80);
+  cpu.writeReg(reg, result);
+  cpu.setFlags(result == 0x00, false, false, new_carry == 0x1);
+}
+
+fn void srlReg(Cpu* cpu, Inst* inst, Reg reg) {
+  UInt8 value = cpu.readReg(reg);
+  UInt8 new_carry = value & 0x1;
+  UInt8 result = (value >> 1) & 0x7F;
+  cpu.writeReg(reg, result);
+  cpu.setFlags(result == 0x00, false, false, new_carry == 0x1);
+}
+
+
+fn void slaReg(Cpu* cpu, Inst* inst, Reg reg) {
+  UInt8 value = cpu.readReg(reg);
+  UInt8 new_carry = (value >> 7) & 0x1;
+  UInt8 result = (value << 1) & 0xFE;
+  cpu.writeReg(reg, result);
+  cpu.setFlags(result == 0x00, false, false, new_carry == 0x1);
 }
 
 // RLC
@@ -300,6 +438,15 @@ fn void rotateLeftWithCarry(Cpu* cpu, Inst* inst, Reg reg) {
   cpu.setFlags(value == 0x00, false, false, new_carry == 0x01);
 }
 
+fn void rotateRightWithCarry(Cpu* cpu, Inst* inst, Reg reg) {
+  UInt8 value = cpu.readReg(reg);
+  UInt8 new_carry = value & 0x1;
+  UInt8 carry = cpu.readFlag(C) ? 1 : 0;
+  value = (value >> 1) | (carry << 7);
+  cpu.writeReg(reg, value);
+  cpu.setFlags(value == 0x00, false, false, new_carry == 0x01);
+}
+
 // Instructions
 InstExec[256] functions;
 InstExec[256] functions_CB;
@@ -317,6 +464,8 @@ fn void init() {
   functions[0x05] = fn (cpu, inst) => decReg(cpu, inst, B);
   functions[0x06] = fn (cpu, inst) => imm2Reg(cpu, inst, B);
   functions[0x07] = fn (cpu, inst) => rotateLeft(cpu, inst, A);
+  functions[0x08] = fn (cpu, inst) => reg162MemImm16(cpu, inst, SP);
+  functions[0x09] = fn (cpu, inst) => addReg16Reg16(cpu, inst, HL, BC);
   functions[0x0a] = fn (cpu, inst) => memReg2Reg(cpu, inst, A, BC);
   functions[0x0b] = fn (cpu, inst) => decReg16(cpu, inst, BC);
   functions[0x0c] = fn (cpu, inst) => incReg(cpu, inst, C);
@@ -331,11 +480,13 @@ fn void init() {
   functions[0x16] = fn (cpu, inst) => imm2Reg(cpu, inst, D);
   functions[0x17] = fn (cpu, inst) => rotateLeftWithCarry(cpu, inst, A);
   functions[0x18] = fn (cpu, inst) => jumpImmRel(cpu, inst, NONE);
+  functions[0x19] = fn (cpu, inst) => addReg16Reg16(cpu, inst, HL, DE);
   functions[0x1a] = fn (cpu, inst) => memReg2Reg(cpu, inst, A, DE);
   functions[0x1b] = fn (cpu, inst) => decReg16(cpu, inst, DE);
   functions[0x1c] = fn (cpu, inst) => incReg(cpu, inst, E);
   functions[0x1d] = fn (cpu, inst) => decReg(cpu, inst, E);
   functions[0x1e] = fn (cpu, inst) => imm2Reg(cpu, inst, E);
+  functions[0x1f] = fn (cpu, inst) => rotateRightWithCarry(cpu, inst, A);
 
   functions[0x20] = fn (cpu, inst) => jumpImmRel(cpu, inst, NZ);
   functions[0x21] = fn (cpu, inst) => imm2Reg16(cpu, inst, HL);
@@ -345,11 +496,13 @@ fn void init() {
   functions[0x25] = fn (cpu, inst) => decReg(cpu, inst, H);
   functions[0x26] = fn (cpu, inst) => imm2Reg(cpu, inst, H);
   functions[0x28] = fn (cpu, inst) => jumpImmRel(cpu, inst, Z);
+  functions[0x29] = fn (cpu, inst) => addReg16Reg16(cpu, inst, HL, HL);
   functions[0x2a] = fn (cpu, inst) => memReg2Reg(cpu, inst, A, HL_PLUS);
   functions[0x2b] = fn (cpu, inst) => decReg16(cpu, inst, HL);
   functions[0x2c] = fn (cpu, inst) => incReg(cpu, inst, L);
   functions[0x2d] = fn (cpu, inst) => decReg(cpu, inst, L);
   functions[0x2e] = fn (cpu, inst) => imm2Reg(cpu, inst, L);
+  functions[0x2f] = fn (cpu, inst) => cplReg(cpu, inst, A);
 
   functions[0x30] = fn (cpu, inst) => jumpImmRel(cpu, inst, NC);
   functions[0x31] = fn (cpu, inst) => imm2Reg16(cpu, inst, SP);
@@ -359,6 +512,7 @@ fn void init() {
   functions[0x35] = fn (cpu, inst) => decReg(cpu, inst, I_HL);
   functions[0x36] = fn (cpu, inst) => imm2Reg(cpu, inst, I_HL);
   functions[0x38] = fn (cpu, inst) => jumpImmRel(cpu, inst, C);
+  functions[0x39] = fn (cpu, inst) => addReg16Reg16(cpu, inst, HL, SP);
   functions[0x3a] = fn (cpu, inst) => memReg2Reg(cpu, inst, A, HL_MINUS);
   functions[0x3b] = fn (cpu, inst) => decReg16(cpu, inst, SP);
   functions[0x3c] = fn (cpu, inst) => incReg(cpu, inst, A);
@@ -441,6 +595,14 @@ fn void init() {
   functions[0x85] = fn (cpu, inst) => addRegReg(cpu, inst, A, L);
   functions[0x86] = fn (cpu, inst) => addRegReg(cpu, inst, A, I_HL);
   functions[0x87] = fn (cpu, inst) => addRegReg(cpu, inst, A, A);
+  functions[0x88] = fn (cpu, inst) => adcRegReg(cpu, inst, A, B);
+  functions[0x89] = fn (cpu, inst) => adcRegReg(cpu, inst, A, C);
+  functions[0x8a] = fn (cpu, inst) => adcRegReg(cpu, inst, A, D);
+  functions[0x8b] = fn (cpu, inst) => adcRegReg(cpu, inst, A, E);
+  functions[0x8c] = fn (cpu, inst) => adcRegReg(cpu, inst, A, H);
+  functions[0x8d] = fn (cpu, inst) => adcRegReg(cpu, inst, A, L);
+  functions[0x8e] = fn (cpu, inst) => adcRegReg(cpu, inst, A, I_HL);
+  functions[0x8f] = fn (cpu, inst) => adcRegReg(cpu, inst, A, A);
 
   functions[0x90] = fn (cpu, inst) => subRegReg(cpu, inst, A, B);
   functions[0x91] = fn (cpu, inst) => subRegReg(cpu, inst, A, C);
@@ -491,12 +653,14 @@ fn void init() {
   functions[0xc3] = fn (cpu, inst) => jumpImm(cpu, inst, NONE);
   functions[0xc4] = fn (cpu, inst) => callImm(cpu, inst, NZ);
   functions[0xc5] = fn (cpu, inst) => pushReg16(cpu, inst, BC);
+  functions[0xc6] = fn (cpu, inst) => addRegImm8(cpu, inst, A);
   functions[0xc7] = fn (cpu, inst) => rst(cpu, inst, 0x00);
   functions[0xc8] = fn (cpu, inst) => ret(cpu, inst, Z);
   functions[0xc9] = fn (cpu, inst) => ret(cpu, inst, NONE);
   functions[0xca] = fn (cpu, inst) => jumpImm(cpu, inst, Z);
   functions[0xcc] = fn (cpu, inst) => callImm(cpu, inst, Z);
   functions[0xcd] = fn (cpu, inst) => callImm(cpu, inst, NONE);
+  functions[0xce] = fn (cpu, inst) => adcRegImm8(cpu, inst, A);
   functions[0xcf] = fn (cpu, inst) => rst(cpu, inst, 0x08);
 
   functions[0xd0] = fn (cpu, inst) => ret(cpu, inst, NC);
@@ -504,6 +668,7 @@ fn void init() {
   functions[0xd2] = fn (cpu, inst) => jumpImm(cpu, inst, NC);
   functions[0xd4] = fn (cpu, inst) => callImm(cpu, inst, NC);
   functions[0xd5] = fn (cpu, inst) => pushReg16(cpu, inst, DE);
+  functions[0xd6] = fn (cpu, inst) => subRegImm8(cpu, inst, A);
   functions[0xd7] = fn (cpu, inst) => rst(cpu, inst, 0x10);
   functions[0xd8] = fn (cpu, inst) => ret(cpu, inst, C);
   functions[0xd9] = fn (cpu, inst) => reti(cpu, inst);
@@ -517,16 +682,21 @@ fn void init() {
   functions[0xe5] = fn (cpu, inst) => pushReg16(cpu, inst, HL);
   functions[0xe6] = fn (cpu, inst) => andRegImm(cpu, inst, A);
   functions[0xe7] = fn (cpu, inst) => rst(cpu, inst, 0x20);
+  functions[0xe8] = fn (cpu, inst) => addReg16Imm8(cpu, inst, SP);
   functions[0xe9] = fn (cpu, inst) => jumpReg(cpu, inst, HL);
   functions[0xea] = fn (cpu, inst) => reg2MemImm(cpu, inst, A);
+  functions[0xee] = fn (cpu, inst) => xorRegImm8(cpu, inst, A);
   functions[0xef] = fn (cpu, inst) => rst(cpu, inst, 0x28);
 
   functions[0xf0] = fn (cpu, inst) => memImm82Reg(cpu, inst, A, 0xFF00);
   functions[0xf1] = fn (cpu, inst) => popReg16(cpu, inst, AF);
   functions[0xf2] = fn (cpu, inst) => memRegOff2Reg(cpu, inst, A, C, 0xFF00);
-  functions[0xf3] = fn (cpu, inst) => setInterrupts(cpu, inst, false);
+  functions[0xf3] = fn (cpu, inst) => setInterrupts(cpu, inst, false);  
   functions[0xf5] = fn (cpu, inst) => pushReg16(cpu, inst, AF);
+  functions[0xf6] = fn (cpu, inst) => orRegImm8(cpu, inst, A);
   functions[0xf7] = fn (cpu, inst) => rst(cpu, inst, 0x30);
+  functions[0xf8] = fn (cpu, inst) => reg162Reg16addImm8(cpu, inst, HL, SP);
+  functions[0xf9] = fn (cpu, inst) => reg162Reg16(cpu, inst, SP, HL);
   functions[0xfa] = fn (cpu, inst) => memImm2Reg(cpu, inst, A);
   functions[0xfb] = fn (cpu, inst) => setInterrupts(cpu, inst, true);
   functions[0xfe] = fn (cpu, inst) => cmpRegImm(cpu, inst, A);
@@ -550,6 +720,48 @@ fn void init() {
   functions_CB[0x15] = fn (cpu, inst) => rotateLeftWithCarry(cpu, inst, L);
   functions_CB[0x16] = fn (cpu, inst) => rotateLeftWithCarry(cpu, inst, I_HL);
   functions_CB[0x17] = fn (cpu, inst) => rotateLeftWithCarry(cpu, inst, A);
+  functions_CB[0x18] = fn (cpu, inst) => rotateRightWithCarry(cpu, inst, B);
+  functions_CB[0x19] = fn (cpu, inst) => rotateRightWithCarry(cpu, inst, C);
+  functions_CB[0x1a] = fn (cpu, inst) => rotateRightWithCarry(cpu, inst, D);
+  functions_CB[0x1b] = fn (cpu, inst) => rotateRightWithCarry(cpu, inst, E);
+  functions_CB[0x1c] = fn (cpu, inst) => rotateRightWithCarry(cpu, inst, H);
+  functions_CB[0x1d] = fn (cpu, inst) => rotateRightWithCarry(cpu, inst, L);
+  functions_CB[0x1e] = fn (cpu, inst) => rotateRightWithCarry(cpu, inst, I_HL);
+  functions_CB[0x1f] = fn (cpu, inst) => rotateRightWithCarry(cpu, inst, A);
+
+  functions_CB[0x20] = fn (cpu, inst) => slaReg(cpu, inst, B);
+  functions_CB[0x21] = fn (cpu, inst) => slaReg(cpu, inst, C);
+  functions_CB[0x22] = fn (cpu, inst) => slaReg(cpu, inst, D);
+  functions_CB[0x23] = fn (cpu, inst) => slaReg(cpu, inst, E);
+  functions_CB[0x24] = fn (cpu, inst) => slaReg(cpu, inst, H);
+  functions_CB[0x25] = fn (cpu, inst) => slaReg(cpu, inst, L);
+  functions_CB[0x26] = fn (cpu, inst) => slaReg(cpu, inst, I_HL);
+  functions_CB[0x27] = fn (cpu, inst) => slaReg(cpu, inst, A);
+  functions_CB[0x28] = fn (cpu, inst) => sraReg(cpu, inst, B);
+  functions_CB[0x29] = fn (cpu, inst) => sraReg(cpu, inst, C);
+  functions_CB[0x2a] = fn (cpu, inst) => sraReg(cpu, inst, D);
+  functions_CB[0x2b] = fn (cpu, inst) => sraReg(cpu, inst, E);
+  functions_CB[0x2c] = fn (cpu, inst) => sraReg(cpu, inst, H);
+  functions_CB[0x2d] = fn (cpu, inst) => sraReg(cpu, inst, L);
+  functions_CB[0x2e] = fn (cpu, inst) => sraReg(cpu, inst, I_HL);
+  functions_CB[0x2f] = fn (cpu, inst) => sraReg(cpu, inst, A);
+
+  functions_CB[0x30] = fn (cpu, inst) => swapReg(cpu, inst, B);
+  functions_CB[0x31] = fn (cpu, inst) => swapReg(cpu, inst, C);
+  functions_CB[0x32] = fn (cpu, inst) => swapReg(cpu, inst, D);
+  functions_CB[0x33] = fn (cpu, inst) => swapReg(cpu, inst, E);
+  functions_CB[0x34] = fn (cpu, inst) => swapReg(cpu, inst, H);
+  functions_CB[0x35] = fn (cpu, inst) => swapReg(cpu, inst, L);
+  functions_CB[0x36] = fn (cpu, inst) => swapReg(cpu, inst, I_HL);
+  functions_CB[0x37] = fn (cpu, inst) => swapReg(cpu, inst, A);
+  functions_CB[0x38] = fn (cpu, inst) => srlReg(cpu, inst, B);
+  functions_CB[0x39] = fn (cpu, inst) => srlReg(cpu, inst, C);
+  functions_CB[0x3a] = fn (cpu, inst) => srlReg(cpu, inst, D);
+  functions_CB[0x3b] = fn (cpu, inst) => srlReg(cpu, inst, E);
+  functions_CB[0x3c] = fn (cpu, inst) => srlReg(cpu, inst, H);
+  functions_CB[0x3d] = fn (cpu, inst) => srlReg(cpu, inst, L);
+  functions_CB[0x3e] = fn (cpu, inst) => srlReg(cpu, inst, I_HL);
+  functions_CB[0x3f] = fn (cpu, inst) => srlReg(cpu, inst, A);
 
   functions_CB[0x40] = fn (cpu, inst) => bitReg(cpu, inst, B, 0);
   functions_CB[0x41] = fn (cpu, inst) => bitReg(cpu, inst, C, 0);
@@ -618,6 +830,142 @@ fn void init() {
   functions_CB[0x7d] = fn (cpu, inst) => bitReg(cpu, inst, L, 7);
   functions_CB[0x7e] = fn (cpu, inst) => bitReg(cpu, inst, I_HL, 7);
   functions_CB[0x7f] = fn (cpu, inst) => bitReg(cpu, inst, A, 7);
+
+  functions_CB[0x80] = fn (cpu, inst) => resBitReg(cpu, inst, B, 0);
+  functions_CB[0x81] = fn (cpu, inst) => resBitReg(cpu, inst, C, 0);
+  functions_CB[0x82] = fn (cpu, inst) => resBitReg(cpu, inst, D, 0);
+  functions_CB[0x83] = fn (cpu, inst) => resBitReg(cpu, inst, E, 0);
+  functions_CB[0x84] = fn (cpu, inst) => resBitReg(cpu, inst, H, 0);
+  functions_CB[0x85] = fn (cpu, inst) => resBitReg(cpu, inst, L, 0);
+  functions_CB[0x86] = fn (cpu, inst) => resBitReg(cpu, inst, I_HL, 0);
+  functions_CB[0x87] = fn (cpu, inst) => resBitReg(cpu, inst, A, 0);
+  functions_CB[0x88] = fn (cpu, inst) => resBitReg(cpu, inst, B, 1);
+  functions_CB[0x89] = fn (cpu, inst) => resBitReg(cpu, inst, C, 1);
+  functions_CB[0x8a] = fn (cpu, inst) => resBitReg(cpu, inst, D, 1);
+  functions_CB[0x8b] = fn (cpu, inst) => resBitReg(cpu, inst, E, 1);
+  functions_CB[0x8c] = fn (cpu, inst) => resBitReg(cpu, inst, H, 1);
+  functions_CB[0x8d] = fn (cpu, inst) => resBitReg(cpu, inst, L, 1);
+  functions_CB[0x8e] = fn (cpu, inst) => resBitReg(cpu, inst, I_HL, 1);
+  functions_CB[0x8f] = fn (cpu, inst) => resBitReg(cpu, inst, A, 1);
+
+  functions_CB[0x90] = fn (cpu, inst) => resBitReg(cpu, inst, B, 2);
+  functions_CB[0x91] = fn (cpu, inst) => resBitReg(cpu, inst, C, 2);
+  functions_CB[0x92] = fn (cpu, inst) => resBitReg(cpu, inst, D, 2);
+  functions_CB[0x93] = fn (cpu, inst) => resBitReg(cpu, inst, E, 2);
+  functions_CB[0x94] = fn (cpu, inst) => resBitReg(cpu, inst, H, 2);
+  functions_CB[0x95] = fn (cpu, inst) => resBitReg(cpu, inst, L, 2);
+  functions_CB[0x96] = fn (cpu, inst) => resBitReg(cpu, inst, I_HL, 2);
+  functions_CB[0x97] = fn (cpu, inst) => resBitReg(cpu, inst, A, 2);
+  functions_CB[0x98] = fn (cpu, inst) => resBitReg(cpu, inst, B, 3);
+  functions_CB[0x99] = fn (cpu, inst) => resBitReg(cpu, inst, C, 3);
+  functions_CB[0x9a] = fn (cpu, inst) => resBitReg(cpu, inst, D, 3);
+  functions_CB[0x9b] = fn (cpu, inst) => resBitReg(cpu, inst, E, 3);
+  functions_CB[0x9c] = fn (cpu, inst) => resBitReg(cpu, inst, H, 3);
+  functions_CB[0x9d] = fn (cpu, inst) => resBitReg(cpu, inst, L, 3);
+  functions_CB[0x9e] = fn (cpu, inst) => resBitReg(cpu, inst, I_HL, 3);
+  functions_CB[0x9f] = fn (cpu, inst) => resBitReg(cpu, inst, A, 3);
+
+  functions_CB[0xa0] = fn (cpu, inst) => resBitReg(cpu, inst, B, 4);
+  functions_CB[0xa1] = fn (cpu, inst) => resBitReg(cpu, inst, C, 4);
+  functions_CB[0xa2] = fn (cpu, inst) => resBitReg(cpu, inst, D, 4);
+  functions_CB[0xa3] = fn (cpu, inst) => resBitReg(cpu, inst, E, 4);
+  functions_CB[0xa4] = fn (cpu, inst) => resBitReg(cpu, inst, H, 4);
+  functions_CB[0xa5] = fn (cpu, inst) => resBitReg(cpu, inst, L, 4);
+  functions_CB[0xa6] = fn (cpu, inst) => resBitReg(cpu, inst, I_HL, 4);
+  functions_CB[0xa7] = fn (cpu, inst) => resBitReg(cpu, inst, A, 4);
+  functions_CB[0xa8] = fn (cpu, inst) => resBitReg(cpu, inst, B, 5);
+  functions_CB[0xa9] = fn (cpu, inst) => resBitReg(cpu, inst, C, 5);
+  functions_CB[0xaa] = fn (cpu, inst) => resBitReg(cpu, inst, D, 5);
+  functions_CB[0xab] = fn (cpu, inst) => resBitReg(cpu, inst, E, 5);
+  functions_CB[0xac] = fn (cpu, inst) => resBitReg(cpu, inst, H, 5);
+  functions_CB[0xad] = fn (cpu, inst) => resBitReg(cpu, inst, L, 5);
+  functions_CB[0xae] = fn (cpu, inst) => resBitReg(cpu, inst, I_HL, 5);
+  functions_CB[0xaf] = fn (cpu, inst) => resBitReg(cpu, inst, A, 5);
+
+  functions_CB[0xb0] = fn (cpu, inst) => resBitReg(cpu, inst, B, 6);
+  functions_CB[0xb1] = fn (cpu, inst) => resBitReg(cpu, inst, C, 6);
+  functions_CB[0xb2] = fn (cpu, inst) => resBitReg(cpu, inst, D, 6);
+  functions_CB[0xb3] = fn (cpu, inst) => resBitReg(cpu, inst, E, 6);
+  functions_CB[0xb4] = fn (cpu, inst) => resBitReg(cpu, inst, H, 6);
+  functions_CB[0xb5] = fn (cpu, inst) => resBitReg(cpu, inst, L, 6);
+  functions_CB[0xb6] = fn (cpu, inst) => resBitReg(cpu, inst, I_HL, 6);
+  functions_CB[0xb7] = fn (cpu, inst) => resBitReg(cpu, inst, A, 6);
+  functions_CB[0xb8] = fn (cpu, inst) => resBitReg(cpu, inst, B, 7);
+  functions_CB[0xb9] = fn (cpu, inst) => resBitReg(cpu, inst, C, 7);
+  functions_CB[0xba] = fn (cpu, inst) => resBitReg(cpu, inst, D, 7);
+  functions_CB[0xbb] = fn (cpu, inst) => resBitReg(cpu, inst, E, 7);
+  functions_CB[0xbc] = fn (cpu, inst) => resBitReg(cpu, inst, H, 7);
+  functions_CB[0xbd] = fn (cpu, inst) => resBitReg(cpu, inst, L, 7);
+  functions_CB[0xbe] = fn (cpu, inst) => resBitReg(cpu, inst, I_HL, 7);
+  functions_CB[0xbf] = fn (cpu, inst) => resBitReg(cpu, inst, A, 7);
+
+  functions_CB[0xc0] = fn (cpu, inst) => setBitReg(cpu, inst, B, 0);
+  functions_CB[0xc1] = fn (cpu, inst) => setBitReg(cpu, inst, C, 0);
+  functions_CB[0xc2] = fn (cpu, inst) => setBitReg(cpu, inst, D, 0);
+  functions_CB[0xc3] = fn (cpu, inst) => setBitReg(cpu, inst, E, 0);
+  functions_CB[0xc4] = fn (cpu, inst) => setBitReg(cpu, inst, H, 0);
+  functions_CB[0xc5] = fn (cpu, inst) => setBitReg(cpu, inst, L, 0);
+  functions_CB[0xc6] = fn (cpu, inst) => setBitReg(cpu, inst, I_HL, 0);
+  functions_CB[0xc7] = fn (cpu, inst) => setBitReg(cpu, inst, A, 0);
+  functions_CB[0xc8] = fn (cpu, inst) => setBitReg(cpu, inst, B, 1);
+  functions_CB[0xc9] = fn (cpu, inst) => setBitReg(cpu, inst, C, 1);
+  functions_CB[0xca] = fn (cpu, inst) => setBitReg(cpu, inst, D, 1);
+  functions_CB[0xcb] = fn (cpu, inst) => setBitReg(cpu, inst, E, 1);
+  functions_CB[0xcc] = fn (cpu, inst) => setBitReg(cpu, inst, H, 1);
+  functions_CB[0xcd] = fn (cpu, inst) => setBitReg(cpu, inst, L, 1);
+  functions_CB[0xce] = fn (cpu, inst) => setBitReg(cpu, inst, I_HL, 1);
+  functions_CB[0xcf] = fn (cpu, inst) => setBitReg(cpu, inst, A, 1);
+
+  functions_CB[0xd0] = fn (cpu, inst) => setBitReg(cpu, inst, B, 2);
+  functions_CB[0xd1] = fn (cpu, inst) => setBitReg(cpu, inst, C, 2);
+  functions_CB[0xd2] = fn (cpu, inst) => setBitReg(cpu, inst, D, 2);
+  functions_CB[0xd3] = fn (cpu, inst) => setBitReg(cpu, inst, E, 2);
+  functions_CB[0xd4] = fn (cpu, inst) => setBitReg(cpu, inst, H, 2);
+  functions_CB[0xd5] = fn (cpu, inst) => setBitReg(cpu, inst, L, 2);
+  functions_CB[0xd6] = fn (cpu, inst) => setBitReg(cpu, inst, I_HL, 2);
+  functions_CB[0xd7] = fn (cpu, inst) => setBitReg(cpu, inst, A, 2);
+  functions_CB[0xd8] = fn (cpu, inst) => setBitReg(cpu, inst, B, 3);
+  functions_CB[0xd9] = fn (cpu, inst) => setBitReg(cpu, inst, C, 3);
+  functions_CB[0xda] = fn (cpu, inst) => setBitReg(cpu, inst, D, 3);
+  functions_CB[0xdb] = fn (cpu, inst) => setBitReg(cpu, inst, E, 3);
+  functions_CB[0xdc] = fn (cpu, inst) => setBitReg(cpu, inst, H, 3);
+  functions_CB[0xdd] = fn (cpu, inst) => setBitReg(cpu, inst, L, 3);
+  functions_CB[0xde] = fn (cpu, inst) => setBitReg(cpu, inst, I_HL, 3);
+  functions_CB[0xdf] = fn (cpu, inst) => setBitReg(cpu, inst, A, 3);
+
+  functions_CB[0xe0] = fn (cpu, inst) => setBitReg(cpu, inst, B, 4);
+  functions_CB[0xe1] = fn (cpu, inst) => setBitReg(cpu, inst, C, 4);
+  functions_CB[0xe2] = fn (cpu, inst) => setBitReg(cpu, inst, D, 4);
+  functions_CB[0xe3] = fn (cpu, inst) => setBitReg(cpu, inst, E, 4);
+  functions_CB[0xe4] = fn (cpu, inst) => setBitReg(cpu, inst, H, 4);
+  functions_CB[0xe5] = fn (cpu, inst) => setBitReg(cpu, inst, L, 4);
+  functions_CB[0xe6] = fn (cpu, inst) => setBitReg(cpu, inst, I_HL, 4);
+  functions_CB[0xe7] = fn (cpu, inst) => setBitReg(cpu, inst, A, 4);
+  functions_CB[0xe8] = fn (cpu, inst) => setBitReg(cpu, inst, B, 5);
+  functions_CB[0xe9] = fn (cpu, inst) => setBitReg(cpu, inst, C, 5);
+  functions_CB[0xea] = fn (cpu, inst) => setBitReg(cpu, inst, D, 5);
+  functions_CB[0xeb] = fn (cpu, inst) => setBitReg(cpu, inst, E, 5);
+  functions_CB[0xec] = fn (cpu, inst) => setBitReg(cpu, inst, H, 5);
+  functions_CB[0xed] = fn (cpu, inst) => setBitReg(cpu, inst, L, 5);
+  functions_CB[0xee] = fn (cpu, inst) => setBitReg(cpu, inst, I_HL, 5);
+  functions_CB[0xef] = fn (cpu, inst) => setBitReg(cpu, inst, A, 5);
+
+  functions_CB[0xf0] = fn (cpu, inst) => setBitReg(cpu, inst, B, 6);
+  functions_CB[0xf1] = fn (cpu, inst) => setBitReg(cpu, inst, C, 6);
+  functions_CB[0xf2] = fn (cpu, inst) => setBitReg(cpu, inst, D, 6);
+  functions_CB[0xf3] = fn (cpu, inst) => setBitReg(cpu, inst, E, 6);
+  functions_CB[0xf4] = fn (cpu, inst) => setBitReg(cpu, inst, H, 6);
+  functions_CB[0xf5] = fn (cpu, inst) => setBitReg(cpu, inst, L, 6);
+  functions_CB[0xf6] = fn (cpu, inst) => setBitReg(cpu, inst, I_HL, 6);
+  functions_CB[0xf7] = fn (cpu, inst) => setBitReg(cpu, inst, A, 6);
+  functions_CB[0xf8] = fn (cpu, inst) => setBitReg(cpu, inst, B, 7);
+  functions_CB[0xf9] = fn (cpu, inst) => setBitReg(cpu, inst, C, 7);
+  functions_CB[0xfa] = fn (cpu, inst) => setBitReg(cpu, inst, D, 7);
+  functions_CB[0xfb] = fn (cpu, inst) => setBitReg(cpu, inst, E, 7);
+  functions_CB[0xfc] = fn (cpu, inst) => setBitReg(cpu, inst, H, 7);
+  functions_CB[0xfd] = fn (cpu, inst) => setBitReg(cpu, inst, L, 7);
+  functions_CB[0xfe] = fn (cpu, inst) => setBitReg(cpu, inst, I_HL, 7);
+  functions_CB[0xff] = fn (cpu, inst) => setBitReg(cpu, inst, A, 7);
 }
 
 

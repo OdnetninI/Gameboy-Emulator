@@ -81,10 +81,21 @@ fn UInt8 Ppu.read(Ppu* ppu, UInt16 addr) {
 fn void Ppu.write(Ppu* ppu, UInt16 addr, UInt8 value) {
   switch (addr) {
     case 0xFF40: ppu.regs.lcdc = value;
+    case 0xFF41: ppu.regs.stat = value;
     case 0xFF42: ppu.regs.scy = value;
     case 0xFF43: ppu.regs.scx = value;
     case 0xFF44: ppu.regs.ly = 0;
+    case 0xFF46: 
+      // DMA Copy
+      ppu.regs.dma = value;
+      UInt16 start_addr = value << 8;
+      for (UInt16 i = 0; i < 0x9f; ++i) {
+        UInt8 data = ppu.system.mem.read(start_addr + i);
+        ppu.system.mem.write(0xFE00 + i, data);
+      }
     case 0xFF47: ppu.regs.bgp = value;
+    case 0xFF48: ppu.regs.obp0 = value;
+    case 0xFF49: ppu.regs.obp1 = value;
     case 0xFF4A: ppu.regs.wy = value;
     case 0xFF4B: ppu.regs.wx = value;
     default:
@@ -115,7 +126,23 @@ fn UInt8 Ppu.remapColor(Ppu* ppu, UInt8 color) {
 }
 
 fn void Ppu.tick(Ppu* ppu, UInt64 tick) {
-  if ((tick + 1) % 457 == 0) {
+  UInt64 step = (tick + 1) % 457;
+
+  if (ppu.regs.ly >= 144) {
+    ppu.regs.mode_flag = 0b01;
+  }
+  else if (step < 80) {
+    ppu.regs.mode_flag = 0b10;
+  }
+  else if (step < 371) {
+    ppu.regs.mode_flag = 0b11;
+  }
+  else if (step < 456) {
+    ppu.regs.mode_flag = 0b00;
+  }
+
+
+  if (step == 0) {
     //io::printfn("PPU processing line 0x%02x", ppu.regs.ly);
     if (ppu.regs.ly < 144) {
 
@@ -180,7 +207,7 @@ fn void Ppu.tick(Ppu* ppu, UInt64 tick) {
       UInt8 interrupt = ppu.system.mem.read(0xFF0F);
       interrupt = interrupt | (1 << 0); // VBLANK interrupt
       ppu.system.mem.write(0xFF0F, interrupt);
-      io::printfn("Sending VBLANK interrupt");
+      //io::printfn("Sending VBLANK interrupt");
     }
 
     if (ppu.regs.ly == 0) {

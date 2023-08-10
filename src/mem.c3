@@ -25,6 +25,7 @@ fn UInt8 Mem.read(Mem* mem, Addr addr) {
     case 0x0000..0x00FF:
       if (mem.bios_enabled) return mem.bios[addr];
       return mem.memory[addr];
+    // OAM memory is from FE00 -> FE9F which should be handled by the ppu
     case 0xFF40..0xFF4B:
       return mem.system.ppu.read(addr);
   }
