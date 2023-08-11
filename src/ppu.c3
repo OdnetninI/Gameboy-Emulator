@@ -85,6 +85,7 @@ fn void Ppu.write(Ppu* ppu, UInt16 addr, UInt8 value) {
     case 0xFF42: ppu.regs.scy = value;
     case 0xFF43: ppu.regs.scx = value;
     case 0xFF44: ppu.regs.ly = 0;
+    case 0xFF45: ppu.regs.lyc = value;
     case 0xFF46: 
       // DMA Copy
       ppu.regs.dma = value;
@@ -144,6 +145,14 @@ fn void Ppu.tick(Ppu* ppu, UInt64 tick) {
 
   if (step == 0) {
     //io::printfn("PPU processing line 0x%02x", ppu.regs.ly);
+    // LYC == LC or LYC != LC
+    if (ppu.regs.lyc_lcdcly_coincidence) {
+      ppu.regs.lyc_ly_coincidence = ppu.regs.lyc == ppu.regs.ly;
+    }
+    else {
+      ppu.regs.lyc_ly_coincidence = ppu.regs.lyc != ppu.regs.ly;
+    }
+
     if (ppu.regs.ly < 144) {
 
       UInt8 sx = ppu.regs.scx;

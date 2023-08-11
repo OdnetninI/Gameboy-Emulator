@@ -18,10 +18,10 @@ fn void main() {
   bios_file.read(&system.mem.bios)!!;
   bios_file.close()!!;
 
-  //io::File! game_file = io::file::open("roms/test_roms/blargg/cpu_instrs/individual/01-special.gb", "rb");
+  io::File! game_file = io::file::open("roms/test_roms/blargg/cpu_instrs/individual/01-special.gb", "rb");
   //io::File! game_file = io::file::open("roms/nintendo_test.gb", "rb");
   //io::File! game_file = io::file::open("roms/drmario.gb", "rb");
-  io::File! game_file = io::file::open("roms/tetris.gb", "rb");
+  //io::File! game_file = io::file::open("roms/tetris.gb", "rb");
   //io::File! game_file = io::file::open("roms/pokered.gb", "rb");
   //io::File! game_file = io::file::open("roms/hello-world.gb", "rb");
   //io::File! game_file = io::file::open("roms/test_roms/age-test-roms/m3-bg-lcdc/m3-bg-lcdc.gb", "rb");

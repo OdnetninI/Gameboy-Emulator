@@ -163,6 +163,20 @@ fn void subRegImm8(Cpu* cpu, Inst* inst, Reg _dest) {
   cpu.setFlags(dest == src, true, (dest & 0x0F) < (src & 0xF), dest < src);
 }
 
+fn void sbcRegReg(Cpu* cpu, Inst* inst, Reg _dest, Reg _src) {
+  UInt8 dest = cpu.readReg(_dest);
+  UInt8 src = cpu.readReg(_src) + (cpu.readFlag(C) ? 1 : 0);
+  cpu.writeReg(_dest, dest - src);
+  cpu.setFlags(dest == src, true, (dest & 0x0F) < (src & 0xF), dest < src);
+}
+
+fn void sbcRegImm8(Cpu* cpu, Inst* inst, Reg _dest) {
+  UInt8 dest = cpu.readReg(_dest);
+  UInt8 src = cpu.system.mem.read(inst.pc + 1) + (cpu.readFlag(C) ? 1 : 0);
+  cpu.writeReg(_dest, dest - src);
+  cpu.setFlags(dest == src, true, (dest & 0x0F) < (src & 0xF), dest < src);
+}
+
 fn void setInterrupts(Cpu* cpu, Inst* inst, bool enabled) {
   //io::printfn("%s Interruptions", enabled ? "Enabling" : "Disabling");
   cpu.ime = enabled;
@@ -375,7 +389,7 @@ fn void decReg16(Cpu* cpu, Inst* inst, Reg16 reg) {
 fn void bitReg(Cpu* cpu, Inst* inst, Reg reg, UInt8 bit) {
   UInt8 value = cpu.readReg(reg);
   UInt8 test = (1 << bit);
-  cpu.setFlags(value & test != 0x00, false, true, cpu.regs.carry);
+  cpu.setFlags(value & test == 0x00, false, true, cpu.regs.carry);
 }
 
 fn void resBitReg(Cpu* cpu, Inst* inst, Reg reg, UInt8 bit) {
@@ -417,12 +431,45 @@ fn void slaReg(Cpu* cpu, Inst* inst, Reg reg) {
   cpu.setFlags(result == 0x00, false, false, new_carry == 0x1);
 }
 
+fn void daaReg(Cpu* cpu, Inst* inst, Reg reg) {
+  UInt8 value = cpu.readReg(reg);
+
+  bool carry = cpu.readFlag(C);
+  bool half = cpu.readFlag(H);
+  bool neg = cpu.readFlag(N);
+
+  if (neg) {
+    if (carry) value -= 0x60;
+    if (half) value -= 0x6;
+  }
+  else {
+    if (carry || value > 0x99) {
+      carry = true;
+      value += 0x60;
+    }
+    if (half || ((value & 0x0F) > 0x09)) {
+      value += 0x06;
+    }
+  }
+
+  cpu.writeReg(reg, value);
+  cpu.setFlags(value == 0x00, neg, false, carry);
+}
+
 // RLC
 fn void rotateLeft(Cpu* cpu, Inst* inst, Reg reg) {
   UInt8 value = cpu.readReg(reg);
   UInt8 carry = value >> 7;
   value = value << 1;
   value += carry;
+  cpu.writeReg(reg, value);
+  cpu.setFlags(value == 0x00, false, false, carry == 0x01);
+}
+
+fn void rotateRight(Cpu* cpu, Inst* inst, Reg reg) {
+  UInt8 value = cpu.readReg(reg);
+  UInt8 carry = value & 0x1;
+  value = value >> 1 | (carry << 7);
   cpu.writeReg(reg, value);
   cpu.setFlags(value == 0x00, false, false, carry == 0x01);
 }
@@ -471,6 +518,7 @@ fn void init() {
   functions[0x0c] = fn (cpu, inst) => incReg(cpu, inst, C);
   functions[0x0d] = fn (cpu, inst) => decReg(cpu, inst, C);
   functions[0x0e] = fn (cpu, inst) => imm2Reg(cpu, inst, C);
+  functions[0x0f] = fn (cpu, inst) => rotateRight(cpu, inst, A);
 
   functions[0x11] = fn (cpu, inst) => imm2Reg16(cpu, inst, DE);
   functions[0x12] = fn (cpu, inst) => reg2MemReg16(cpu, inst, A, DE);
@@ -495,6 +543,7 @@ fn void init() {
   functions[0x24] = fn (cpu, inst) => incReg(cpu, inst, H);
   functions[0x25] = fn (cpu, inst) => decReg(cpu, inst, H);
   functions[0x26] = fn (cpu, inst) => imm2Reg(cpu, inst, H);
+  functions[0x27] = fn (cpu, inst) => daaReg(cpu, inst, A);
   functions[0x28] = fn (cpu, inst) => jumpImmRel(cpu, inst, Z);
   functions[0x29] = fn (cpu, inst) => addReg16Reg16(cpu, inst, HL, HL);
   functions[0x2a] = fn (cpu, inst) => memReg2Reg(cpu, inst, A, HL_PLUS);
@@ -612,6 +661,14 @@ fn void init() {
   functions[0x95] = fn (cpu, inst) => subRegReg(cpu, inst, A, L);
   functions[0x96] = fn (cpu, inst) => subRegReg(cpu, inst, A, I_HL);
   functions[0x97] = fn (cpu, inst) => subRegReg(cpu, inst, A, A);
+  functions[0x98] = fn (cpu, inst) => sbcRegReg(cpu, inst, A, B);
+  functions[0x99] = fn (cpu, inst) => sbcRegReg(cpu, inst, A, C);
+  functions[0x9a] = fn (cpu, inst) => sbcRegReg(cpu, inst, A, D);
+  functions[0x9b] = fn (cpu, inst) => sbcRegReg(cpu, inst, A, E);
+  functions[0x9c] = fn (cpu, inst) => sbcRegReg(cpu, inst, A, H);
+  functions[0x9d] = fn (cpu, inst) => sbcRegReg(cpu, inst, A, L);
+  functions[0x9e] = fn (cpu, inst) => sbcRegReg(cpu, inst, A, I_HL);
+  functions[0x9f] = fn (cpu, inst) => sbcRegReg(cpu, inst, A, A);
 
   functions[0xa0] = fn (cpu, inst) => andRegReg(cpu, inst, A, B);
   functions[0xa1] = fn (cpu, inst) => andRegReg(cpu, inst, A, C);
@@ -674,6 +731,7 @@ fn void init() {
   functions[0xd9] = fn (cpu, inst) => reti(cpu, inst);
   functions[0xda] = fn (cpu, inst) => jumpImm(cpu, inst, C);
   functions[0xdc] = fn (cpu, inst) => callImm(cpu, inst, C);
+  functions[0xde] = fn (cpu, inst) => sbcRegImm8(cpu, inst, A);
   functions[0xdf] = fn (cpu, inst) => rst(cpu, inst, 0x18);
 
   functions[0xe0] = fn (cpu, inst) => reg2MemImm8(cpu, inst, A, 0xFF00);
@@ -711,6 +769,14 @@ fn void init() {
   functions_CB[0x05] = fn (cpu, inst) => rotateLeft(cpu, inst, L);
   functions_CB[0x06] = fn (cpu, inst) => rotateLeft(cpu, inst, I_HL);
   functions_CB[0x07] = fn (cpu, inst) => rotateLeft(cpu, inst, A);
+  functions_CB[0x08] = fn (cpu, inst) => rotateRight(cpu, inst, B);
+  functions_CB[0x09] = fn (cpu, inst) => rotateRight(cpu, inst, C);
+  functions_CB[0x0a] = fn (cpu, inst) => rotateRight(cpu, inst, D);
+  functions_CB[0x0b] = fn (cpu, inst) => rotateRight(cpu, inst, E);
+  functions_CB[0x0c] = fn (cpu, inst) => rotateRight(cpu, inst, H);
+  functions_CB[0x0d] = fn (cpu, inst) => rotateRight(cpu, inst, L);
+  functions_CB[0x0e] = fn (cpu, inst) => rotateRight(cpu, inst, I_HL);
+  functions_CB[0x0f] = fn (cpu, inst) => rotateRight(cpu, inst, A);
 
   functions_CB[0x10] = fn (cpu, inst) => rotateLeftWithCarry(cpu, inst, B);
   functions_CB[0x11] = fn (cpu, inst) => rotateLeftWithCarry(cpu, inst, C);
