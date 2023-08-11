@@ -76,7 +76,7 @@ fn void adcRegImm8(Cpu* cpu, Inst* inst, Reg _dest) {
   UInt8 carry = cpu.readFlag(C) ? 1 : 0;
   UInt8 value = dest + src + carry;
   cpu.writeReg(_dest, value);
-  cpu.setFlags(value == 0x00, false, ((dest & 0x0F) + (src & 0xF) + carry) > 0x0F, (value < dest) || (value < src));
+  cpu.setFlags(value == 0x00, false, ((dest & 0x0F) + (src & 0x0F) + carry) > 0x0F, (value < dest) || (value < src));
 }
 
 fn void addReg16Reg16(Cpu* cpu, Inst* inst, Reg16 _dest, Reg16 _src) {
@@ -84,7 +84,7 @@ fn void addReg16Reg16(Cpu* cpu, Inst* inst, Reg16 _dest, Reg16 _src) {
   UInt16 src = cpu.readReg16(_src);
   UInt16 value = dest + src;
   cpu.writeReg16(_dest, value);
-  cpu.setFlags(cpu.readFlag(Z), false, ((dest & 0x7FF) + (src & 0x7FF)) > 0x800, (value < src) || (value < dest));
+  cpu.setFlags(cpu.readFlag(Z), false, ((dest & 0x0FFF) + (src & 0x0FFF)) > 0x1000, (value < src) || (value < dest));
 }
 
 fn void addReg16Imm8(Cpu* cpu, Inst* inst, Reg16 _dest) {
@@ -189,6 +189,7 @@ fn void pushReg16(Cpu* cpu, Inst* inst, Reg16 reg) {
 
 fn void popReg16(Cpu* cpu, Inst* inst, Reg16 reg) {
   UInt16 value = pop16(cpu, inst);
+  if (reg == AF) value = value & 0xFFF0;
   cpu.writeReg16(reg, value);
 }
 

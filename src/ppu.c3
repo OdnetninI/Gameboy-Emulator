@@ -34,21 +34,50 @@ struct PpuRegs {
   UInt8 dma;
   bitstruct : UInt8 @overlap {
     UInt8 bgp : 0..7;
-    UInt8 color00 : 0..1;
-    UInt8 color01 : 2..3;
-    UInt8 color10 : 4..5;
-    UInt8 color11 : 6..7;
+    UInt8 bg_color00 : 0..1;
+    UInt8 bg_color01 : 2..3;
+    UInt8 bg_color10 : 4..5;
+    UInt8 bg_color11 : 6..7;
   }
-  UInt8 obp0;
-  UInt8 obp1;
+  bitstruct : UInt8 @overlap {
+    UInt8 obp0 : 0..7;
+    UInt8 obp0_color00 : 0..1;
+    UInt8 obp0_color01 : 2..3;
+    UInt8 obp0_color10 : 4..5;
+    UInt8 obp0_color11 : 6..7;
+  }
+  bitstruct : UInt8 @overlap {
+    UInt8 obp1 : 0..7;
+    UInt8 obp1_color00 : 0..1;
+    UInt8 obp1_color01 : 2..3;
+    UInt8 obp1_color10 : 4..5;
+    UInt8 obp1_color11 : 6..7;
+  }
   UInt8 wy;
   UInt8 wx;
+}
+
+struct Oam {
+  UInt8 y;
+  UInt8 x;
+  UInt8 tile;
+
+  bitstruct : UInt8 @overlap {
+    UInt8 flags : 0..7;
+    bool priority : 7;
+    bool yflip : 6;
+    bool xflip : 5;
+    bool pallette : 4;
+  }
 }
 
 struct Ppu {
   System* system;
   UInt8 mode;
   PpuRegs regs;
+
+  UInt8 curr_line_sprite_num;
+  Oam[10] curr_line_sprites;
 }
 
 enum Mode {
@@ -114,15 +143,55 @@ fn void Ppu.init(Ppu* ppu, System* system) {
   ppu.regs.wy = 0;
 }
 
-fn UInt8 Ppu.remapColor(Ppu* ppu, UInt8 color) {
+fn UInt8 Ppu.remapBGColor(Ppu* ppu, UInt8 color) {
   switch(color) {
-    case 0b00: return ppu.regs.color00;
-    case 0b01: return ppu.regs.color01;
-    case 0b10: return ppu.regs.color10;
-    case 0b11: return ppu.regs.color11;
+    case 0b00: return ppu.regs.bg_color00;
+    case 0b01: return ppu.regs.bg_color01;
+    case 0b10: return ppu.regs.bg_color10;
+    case 0b11: return ppu.regs.bg_color11;
     default:
       io::printfn("Invalid pixel data %02x", color);
       return 0;
+  }
+}
+
+fn UInt8 Ppu.remapSpriteColor(Ppu* ppu, UInt8 color, bool pallete2) {
+  switch(color) {
+    case 0b00: return pallete2 ? ppu.regs.obp1_color00 : ppu.regs.obp0_color00;
+    case 0b01: return pallete2 ? ppu.regs.obp1_color01 : ppu.regs.obp0_color01;
+    case 0b10: return pallete2 ? ppu.regs.obp1_color10 : ppu.regs.obp0_color10;
+    case 0b11: return pallete2 ? ppu.regs.obp1_color11 : ppu.regs.obp0_color11;
+    default:
+      io::printfn("Invalid pixel data %02x", color);
+      return 0;
+  }
+}
+
+fn void Oam.print(Oam* oam) {
+  io::printfn("Pos:(%02x %02x) Tile:%02x Flags:%02x", oam.x, oam.y, oam.tile, oam.flags);
+}
+
+fn void Ppu.loadSprites(Ppu* ppu) {
+  UInt8 yPos = ppu.regs.ly;
+  bool is_8_16 = ppu.regs.obj_size;
+  UInt16 oam_addr = 0xFE00;
+
+  for (UInt8 i = 0; i < 40; ++i) {
+    Oam oam;
+    oam.y = ppu.system.mem.read(oam_addr + (i * 4)/*sizeof OAM*/ + 0);
+    oam.x = ppu.system.mem.read(oam_addr + (i * 4)/*sizeof OAM*/ + 1);
+    oam.tile = ppu.system.mem.read(oam_addr + (i * 4)/*sizeof OAM*/ + 2);
+    oam.flags = ppu.system.mem.read(oam_addr + (i * 4)/*sizeof OAM*/ + 3);
+
+    if (oam.x == 0) continue;
+    if (ppu.curr_line_sprite_num >= 10) break;
+    if (oam.y <= yPos + 16 && (yPos + 16) < (oam.y + (is_8_16 ? 16 : 8))) {
+      ppu.curr_line_sprites[ppu.curr_line_sprite_num] = oam;
+      ppu.curr_line_sprite_num++;
+
+      //io::printf("Found sprite (num %d) at %04x: ", ppu.curr_line_sprite_num, oam_addr + i * (8 * 4));
+      //oam.print();
+    }
   }
 }
 
@@ -134,6 +203,13 @@ fn void Ppu.tick(Ppu* ppu, UInt64 tick) {
   }
   else if (step < 80) {
     ppu.regs.mode_flag = 0b10;
+
+    // Load sprites in the first tick, this is not real
+    if (step == 0) {
+      ppu.curr_line_sprite_num = 0;
+      ppu.loadSprites();
+      //io::printfn("Num sprites to render %d", ppu.curr_line_sprite_num);
+    }
   }
   else if (step < 371) {
     ppu.regs.mode_flag = 0b11;
@@ -154,6 +230,8 @@ fn void Ppu.tick(Ppu* ppu, UInt64 tick) {
     }
 
     if (ppu.regs.ly < 144) {
+
+      UInt16 sprite_addr = 0x8000;
 
       UInt8 sx = ppu.regs.scx;
       UInt8 sy = ppu.regs.scy;
@@ -176,37 +254,70 @@ fn void Ppu.tick(Ppu* ppu, UInt64 tick) {
       UInt16 tileRow = ((UInt8)(yPos / 8)) * 32;
     
       for (UInt8 x = 0; x < 160; ++x) {
-        //ppu.system.lcd.framebuffer[ppu.regs.ly][x] = ppu.system.lcd.framebuffer[ppu.regs.ly][x] == 0 ? 1 : 0;
-        UInt8 xPos = x + sx;
-        UInt16 tileCol = xPos / 8;
-        Int16 tileNum;
-        UInt16 tileAddress = backgroundMem + tileRow + tileCol;
-        tileNum = (UInt8)ppu.system.mem.read(tileAddress);
-        if (!unsig) tileNum = (Int8)ppu.system.mem.read(tileAddress);
+        UInt8 color = ppu.remapBGColor(0b00);
 
-        UInt16 tileLocation = tileData;
-        if (unsig) { tileLocation += (tileNum * 16); }
-        else { tileLocation += ((tileNum + 128) * 16); }
-        //io::printfn("TileAddr %04x", tileLocation);
+        if (ppu.regs.bg_window_show) {
+          //ppu.system.lcd.framebuffer[ppu.regs.ly][x] = ppu.system.lcd.framebuffer[ppu.regs.ly][x] == 0 ? 1 : 0;
+          UInt8 xPos = x + sx;
+          UInt16 tileCol = xPos / 8;
+          Int16 tileNum;
+          UInt16 tileAddress = backgroundMem + tileRow + tileCol;
+          tileNum = (UInt8)ppu.system.mem.read(tileAddress);
+          if (!unsig) tileNum = (Int8)ppu.system.mem.read(tileAddress);
 
-        UInt8 line = yPos % 8;
-        line *= 2;
-        UInt8 data1 = ppu.system.mem.read((UInt16)(tileLocation + line));
-        UInt8 data2 = ppu.system.mem.read((UInt16)(tileLocation + line + 1));
+          UInt16 tileLocation = tileData;
+          if (unsig) { tileLocation += (tileNum * 16); }
+          else { tileLocation += ((tileNum + 128) * 16); }
+          //io::printfn("TileAddr %04x", tileLocation);
 
-        //io::printfn("Tile at %04x is %02x %02x", tileLocation + line, data1, data2);
+          UInt8 line = yPos % 8;
+          line *= 2;
+          UInt8 data1 = ppu.system.mem.read((UInt16)(tileLocation + line));
+          UInt8 data2 = ppu.system.mem.read((UInt16)(tileLocation + line + 1));
 
-        int colourBit = xPos % 8;
-        colourBit -= 7;
-        colourBit *= -1;
+          //io::printfn("Tile at %04x is %02x %02x", tileLocation + line, data1, data2);
 
-        UInt8 colourNum = ((data2 >> colourBit) & 0x1);
-        colourNum <<= 1;
-        colourNum |= ((data1 >> colourBit) & 0x1);
+          int colourBit = xPos % 8;
+          colourBit -= 7;
+          colourBit *= -1;
 
-        //io::printfn("Color is %02x", colourNum);
+          UInt8 colourNum = ((data2 >> colourBit) & 0x1);
+          colourNum <<= 1;
+          colourNum |= ((data1 >> colourBit) & 0x1);
 
-        ppu.system.lcd.framebuffer[ppu.regs.ly][x] = ppu.remapColor(colourNum);
+          //io::printfn("Color is %02x", colourNum);
+          color = ppu.remapBGColor(colourNum);
+        }
+
+        if (ppu.regs.obj_show) {
+          for (UInt8 i = 0; i < ppu.curr_line_sprite_num; ++i) {
+            Oam oam = ppu.curr_line_sprites[i];
+            UInt8 sp_x = oam.x - 8 + (sx % 8);
+            if (x > (sp_x + 8)) continue;
+            
+            int offset = x - sp_x;
+            if (offset < 0 || offset > 7) continue;
+            
+            UInt8 bit = (UInt8)((int)7 - offset);
+            if (oam.xflip) bit = (UInt8)offset;
+            
+            UInt8 line = ppu.regs.ly - (oam.y - 16);
+            UInt8 data1 = ppu.system.mem.read((UInt16)(sprite_addr + oam.tile * 16 + line * 2));
+            UInt8 data2 = ppu.system.mem.read((UInt16)(sprite_addr + oam.tile * 16 + line * 2 + 1));            
+
+            UInt8 colourNum = ((data2 >> bit) & 0x1);
+            colourNum <<= 1;
+            colourNum |= ((data1 >> bit) & 0x1);
+
+            if (colourNum == 0b00) continue;
+
+            if (!oam.priority || color == 0b00) {
+              color = ppu.remapSpriteColor(colourNum, oam.pallette);
+            }
+          }
+        }
+
+        ppu.system.lcd.framebuffer[ppu.regs.ly][x] = color;
       }
       //ppu.system.lcd.redraw();
     }
