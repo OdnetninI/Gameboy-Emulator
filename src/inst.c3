@@ -440,8 +440,12 @@ fn void daaReg(Cpu* cpu, Inst* inst, Reg reg) {
   bool neg = cpu.readFlag(N);
 
   if (neg) {
-    if (carry) value -= 0x60;
-    if (half) value -= 0x6;
+    if (carry) {
+      value -= 0x60;
+    }
+    if (half) {
+      value -= 0x6;
+    }
   }
   else {
     if (carry || value > 0x99) {

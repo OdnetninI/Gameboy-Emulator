@@ -18,6 +18,7 @@ fn void main() {
   bios_file.read(&system.mem.bios)!!;
   bios_file.close()!!;
 
+  io::File! game_file = io::file::open("roms/test_roms/bully/bully.gb", "rb");
   //io::File! game_file = io::file::open("roms/test_roms/blargg/cpu_instrs/individual/03-op sp,hl.gb", "rb");
   //io::File! game_file = io::file::open("roms/nintendo_test.gb", "rb");
   //io::File! game_file = io::file::open("roms/drmario.gb", "rb");

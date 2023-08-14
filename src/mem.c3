@@ -16,6 +16,9 @@ struct Mem {
 fn void Mem.init(Mem* mem, System* system) {
   mem.system = system;
   mem.bios_enabled = true;
+
+  mem.memory[0xFF04] = 0xFF;
+
   mem.memory[0xFF0F] = 0x00;
 }
 
@@ -26,6 +29,9 @@ fn UInt8 Mem.read(Mem* mem, Addr addr) {
       if (mem.bios_enabled) return mem.bios[addr];
       return mem.memory[addr];
     // OAM memory is from FE00 -> FE9F which should be handled by the ppu
+    case 0xE000..0xFDFF: addr -= 0x2000;
+    case 0xFEA0..0xFEFF: return 0x00;
+    case 0xFF04: return (UInt8)(mem.system.sysclk >> 6);
     case 0xFF40..0xFF4B:
       return mem.system.ppu.read(addr);
   }
@@ -40,7 +46,11 @@ fn UInt16 Mem.read16(Mem* mem, Addr addr) {
 fn void Mem.write(Mem* mem, Addr addr, UInt8 value) {
   //io::printfn("Write to %04x", addr);
   switch (addr) {
-    case 0x0000..0x00FF: if (mem.bios_enabled) mem.bios[addr] = value; return;
+    case 0x0000..0x8000: return;
+
+    case 0xE000..0xFDFF: addr -= 0x2000;
+    case 0xFEA0..0xFEFF: return;
+    case 0xFF04: mem.system.sysclk = 0; return;
     case 0xFF40..0xFF4B:
       mem.system.ppu.write(addr, value);
       return;
