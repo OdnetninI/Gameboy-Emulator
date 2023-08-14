@@ -21,13 +21,13 @@ struct Inst {
 fn void push16(Cpu* cpu, Inst* inst, UInt16 value) {
   UInt16 stack_addr = cpu.readReg16(SP);
   stack_addr -= 2;
-  cpu.system.mem.write16(stack_addr, value);
+  cpu.system.write16(stack_addr, value);
   cpu.writeReg16(SP, stack_addr);
 }
 
 fn UInt16 pop16(Cpu* cpu, Inst* inst) {
   UInt16 stack_addr = cpu.readReg16(SP);
-  UInt16 value = cpu.system.mem.read16(stack_addr);
+  UInt16 value = cpu.system.read16(stack_addr);
   stack_addr += 2;
   cpu.writeReg16(SP, stack_addr);
   return value;
@@ -43,7 +43,7 @@ fn void nop(Cpu* cpu, Inst* inst) { ; }
 // Generic methods
 fn void cmpRegImm(Cpu* cpu, Inst* inst, Reg _data) {
   UInt8 data = cpu.readReg(_data);
-  UInt8 cmp = cpu.system.mem.read(inst.pc + 1);
+  UInt8 cmp = cpu.system.read(inst.pc + 1);
   cpu.setFlags(data == cmp, true, (data & 0x0F) < (cmp & 0xF), data < cmp);
 }
 
@@ -72,7 +72,7 @@ fn void adcRegReg(Cpu* cpu, Inst* inst, Reg _dest, Reg _src) {
 
 fn void adcRegImm8(Cpu* cpu, Inst* inst, Reg _dest) {
   UInt8 dest = cpu.readReg(_dest);
-  UInt8 src = cpu.system.mem.read(inst.pc + 1);
+  UInt8 src = cpu.system.read(inst.pc + 1);
   UInt8 carry = cpu.readFlag(C) ? 1 : 0;
   UInt8 value = dest + src + carry;
   cpu.writeReg(_dest, value);
@@ -89,7 +89,7 @@ fn void addReg16Reg16(Cpu* cpu, Inst* inst, Reg16 _dest, Reg16 _src) {
 
 fn void addReg16Imm8(Cpu* cpu, Inst* inst, Reg16 _dest) {
   UInt16 dest = cpu.readReg16(_dest);
-  Int8 src = cpu.system.mem.read(inst.pc + 1);
+  Int8 src = cpu.system.read(inst.pc + 1);
   UInt16 value = dest + src;
   cpu.writeReg16(_dest, value);
   // TODO update flags H and C correctly
@@ -103,7 +103,7 @@ fn void reg162Reg16(Cpu* cpu, Inst* inst, Reg16 _dest, Reg16 _src) {
 
 fn void reg162Reg16addImm8(Cpu* cpu, Inst* inst, Reg16 _dest, Reg16 _src) {
   UInt16 src = cpu.readReg16(_src);
-  Int8 offset = cpu.system.mem.read(inst.pc + 1);
+  Int8 offset = cpu.system.read(inst.pc + 1);
   cpu.writeReg16(_dest, src + offset);
   // TODO: update H and C flags correctly
   cpu.setFlags(false, false, false, false);
@@ -111,7 +111,7 @@ fn void reg162Reg16addImm8(Cpu* cpu, Inst* inst, Reg16 _dest, Reg16 _src) {
 
 fn void addRegImm8(Cpu* cpu, Inst* inst, Reg _dest) {
   UInt8 dest = cpu.readReg(_dest);
-  UInt8 src = cpu.system.mem.read(inst.pc + 1);
+  UInt8 src = cpu.system.read(inst.pc + 1);
   UInt8 value = dest + src;
   cpu.writeReg(_dest, value);
   cpu.setFlags(value == 0x00, false, ((dest & 0x0F) + (src & 0xF)) > 0x0F, (value < dest) || (value < src));
@@ -127,7 +127,7 @@ fn void andRegReg(Cpu* cpu, Inst* inst, Reg _dest, Reg _src) {
 
 fn void andRegImm(Cpu* cpu, Inst* inst, Reg _dest) {
   UInt8 dest = cpu.readReg(_dest);
-  UInt8 src = cpu.system.mem.read(inst.pc + 1);
+  UInt8 src = cpu.system.read(inst.pc + 1);
   UInt8 value = dest & src;
   cpu.writeReg(_dest, value);
   cpu.setFlags(value == 0x00, false, true, false);
@@ -143,7 +143,7 @@ fn void orRegReg(Cpu* cpu, Inst* inst, Reg _dest, Reg _src) {
 
 fn void orRegImm8(Cpu* cpu, Inst* inst, Reg _dest) {
   UInt8 dest = cpu.readReg(_dest);
-  UInt8 src = cpu.system.mem.read(inst.pc + 1);
+  UInt8 src = cpu.system.read(inst.pc + 1);
   UInt8 value = dest | src;
   cpu.writeReg(_dest, value);
   cpu.setFlags(value == 0x00, false, false, false);
@@ -158,7 +158,7 @@ fn void subRegReg(Cpu* cpu, Inst* inst, Reg _dest, Reg _src) {
 
 fn void subRegImm8(Cpu* cpu, Inst* inst, Reg _dest) {
   UInt8 dest = cpu.readReg(_dest);
-  UInt8 src = cpu.system.mem.read(inst.pc + 1);
+  UInt8 src = cpu.system.read(inst.pc + 1);
   cpu.writeReg(_dest, dest - src);
   cpu.setFlags(dest == src, true, (dest & 0x0F) < (src & 0xF), dest < src);
 }
@@ -172,7 +172,7 @@ fn void sbcRegReg(Cpu* cpu, Inst* inst, Reg _dest, Reg _src) {
 
 fn void sbcRegImm8(Cpu* cpu, Inst* inst, Reg _dest) {
   UInt8 dest = cpu.readReg(_dest);
-  UInt8 src = cpu.system.mem.read(inst.pc + 1) + (cpu.readFlag(C) ? 1 : 0);
+  UInt8 src = cpu.system.read(inst.pc + 1) + (cpu.readFlag(C) ? 1 : 0);
   cpu.writeReg(_dest, dest - src);
   cpu.setFlags(dest == src, true, (dest & 0x0F) < (src & 0xF), dest < src);
 }
@@ -200,53 +200,53 @@ fn void reg2Reg(Cpu* cpu, Inst* inst, Reg dest, Reg src) {
 
 fn void imm2Reg(Cpu* cpu, Inst* inst, Reg reg) {
   UInt16 imm_addr = inst.pc + 1;
-  UInt8 imm = cpu.system.mem.read(imm_addr);
+  UInt8 imm = cpu.system.read(imm_addr);
   cpu.writeReg(reg, imm);
 }
 
 fn void reg162MemImm16(Cpu* cpu, Inst* inst, Reg16 reg) {
-  UInt16 addr = cpu.system.mem.read16(inst.pc + 1);
+  UInt16 addr = cpu.system.read16(inst.pc + 1);
   UInt16 data = cpu.readReg16(reg);
-  cpu.system.mem.write16(addr, data);
+  cpu.system.write16(addr, data);
 }
 
 fn void memReg2Reg(Cpu* cpu, Inst* inst, Reg reg, Reg16 _addr) {
   UInt16 addr = cpu.readReg16(_addr);
-  UInt8 value = cpu.system.mem.read(addr);
+  UInt8 value = cpu.system.read(addr);
   cpu.writeReg(reg, value);
 }
 
 fn void reg2MemReg16(Cpu* cpu, Inst* inst, Reg reg, Reg16 _addr) {
   UInt16 addr = cpu.readReg16(_addr);
   UInt8 value = cpu.readReg(reg);
-  cpu.system.mem.write(addr, value);
+  cpu.system.write(addr, value);
 }
 
 fn void reg2MemImm8(Cpu* cpu, Inst* inst, Reg reg, UInt16 mem) {
   UInt16 imm_addr = inst.pc + 1;
-  UInt8 offset = cpu.system.mem.read(imm_addr);
+  UInt8 offset = cpu.system.read(imm_addr);
   UInt8 data = cpu.readReg(reg);
-  cpu.system.mem.write(mem + offset, data);
+  cpu.system.write(mem + offset, data);
 }
 
 fn void memImm82Reg(Cpu* cpu, Inst* inst, Reg reg, UInt16 mem) {
   UInt16 imm_addr = inst.pc + 1;
-  UInt8 offset = cpu.system.mem.read(imm_addr);
-  UInt8 data = cpu.system.mem.read(mem + offset);
+  UInt8 offset = cpu.system.read(imm_addr);
+  UInt8 data = cpu.system.read(mem + offset);
   cpu.writeReg(reg, data);
 }
 
 fn void reg2MemImm(Cpu* cpu, Inst* inst, Reg reg) {
   UInt16 imm_addr = inst.pc + 1;
-  UInt16 addr = cpu.system.mem.read16(imm_addr);
+  UInt16 addr = cpu.system.read16(imm_addr);
   UInt8 data = cpu.readReg(reg);
-  cpu.system.mem.write(addr, data);
+  cpu.system.write(addr, data);
 }
 
 fn void memImm2Reg(Cpu* cpu, Inst* inst, Reg reg) {
   UInt16 imm_addr = inst.pc + 1;
-  UInt16 addr = cpu.system.mem.read16(imm_addr);
-  UInt8 data = cpu.system.mem.read(addr);
+  UInt16 addr = cpu.system.read16(imm_addr);
+  UInt8 data = cpu.system.read(addr);
   cpu.writeReg(reg, data);
   
 }
@@ -254,18 +254,18 @@ fn void memImm2Reg(Cpu* cpu, Inst* inst, Reg reg) {
 fn void reg2MemReg(Cpu* cpu, Inst* inst, Reg _data, Reg _offset, UInt16 mem) {
   UInt8 offset = cpu.readReg(_offset);
   UInt8 data = cpu.readReg(_data);
-  cpu.system.mem.write(mem + offset, data);
+  cpu.system.write(mem + offset, data);
 }
 
 fn void memRegOff2Reg(Cpu* cpu, Inst* inst, Reg _data, Reg _offset, UInt16 mem) {
   UInt8 offset = cpu.readReg(_offset);
-  UInt8 data = cpu.system.mem.read(mem + offset);
+  UInt8 data = cpu.system.read(mem + offset);
   cpu.writeReg(_data, data);
 }
 
 fn void imm2Reg16(Cpu* cpu, Inst* inst, Reg16 reg) {
   UInt16 imm_addr = inst.pc + 1;
-  UInt16 imm = cpu.system.mem.read16(imm_addr);
+  UInt16 imm = cpu.system.read16(imm_addr);
   cpu.writeReg16(reg, imm);
 }
 
@@ -284,7 +284,7 @@ fn void xorReg(Cpu* cpu, Inst* inst, Reg dest, Reg src) {
 
 fn void xorRegImm8(Cpu* cpu, Inst* inst, Reg dest) {
   UInt8 value = cpu.readReg(dest);
-  UInt8 xorvalue = cpu.system.mem.read(inst.pc + 1);
+  UInt8 xorvalue = cpu.system.read(inst.pc + 1);
   UInt8 result = value ^ xorvalue;
   cpu.writeReg(dest, result);
   cpu.setFlags(result == 0x00, false, false, false);
@@ -309,7 +309,7 @@ fn void jumpImmRel(Cpu* cpu, Inst* inst, Flags flag) {
   if (jump) {
     inst.changedPC = true;
     UInt16 pc = inst.pc + inst_size[inst.opcode];
-    Int8 imm = cpu.system.mem.read(inst.pc + 1);
+    Int8 imm = cpu.system.read(inst.pc + 1);
     cpu.writeReg16(PC, pc + imm);
   }
 }
@@ -318,7 +318,7 @@ fn void jumpImm(Cpu* cpu, Inst* inst, Flags flag) {
   bool jump = cpu.readFlag(flag);
   if (jump) {
     inst.changedPC = true;
-    UInt16 newpc = cpu.system.mem.read16(inst.pc + 1);
+    UInt16 newpc = cpu.system.read16(inst.pc + 1);
     cpu.writeReg16(PC, newpc);
   }
 }
@@ -334,7 +334,7 @@ fn void callImm(Cpu* cpu, Inst* inst, Flags flag) {
   if (jump) {
     inst.changedPC = true;
     push16(cpu, inst, inst.pc + inst_size[inst.opcode]);
-    UInt16 new_pc = cpu.system.mem.read16(inst.pc + 1);
+    UInt16 new_pc = cpu.system.read16(inst.pc + 1);
     cpu.writeReg16(PC, new_pc);
   }
 }

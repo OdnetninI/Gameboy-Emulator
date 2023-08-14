@@ -19,7 +19,7 @@ bitstruct Joypad : UInt8 @overlap {
 
 fn void updateKeys(System* system) {
   Joypad joypad;
-  joypad.data = system.mem.read(0xFF00);
+  joypad.data = system.read(0xFF00);
 
   joypad.right_a = true;
   joypad.left_b = true;
@@ -39,5 +39,5 @@ fn void updateKeys(System* system) {
     if(raylib::is_key_down(raylib::keyboard::BACKSPACE)) joypad.up_select = false; 
   }
 
-  system.mem.write(0xFF00, joypad.data);
+  system.write(0xFF00, joypad.data);
 }

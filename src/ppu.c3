@@ -76,6 +76,9 @@ struct Ppu {
   UInt8 mode;
   PpuRegs regs;
 
+  UInt8[0x2000] vram;
+  UInt8[0x00A0] oam;
+
   UInt8 curr_line_sprite_num;
   Oam[10] curr_line_sprites;
 }
@@ -88,6 +91,22 @@ enum Mode {
 }
 
 fn UInt8 Ppu.read(Ppu* ppu, UInt16 addr) {
+  return ppu.vram[addr];
+}
+
+fn void Ppu.write(Ppu* ppu, UInt16 addr, UInt8 value) {
+  ppu.vram[addr] = value;
+}
+
+fn UInt8 Ppu.oam_read(Ppu* ppu, UInt16 addr) {
+  return ppu.oam[addr];
+}
+
+fn void Ppu.oam_write(Ppu* ppu, UInt16 addr, UInt8 value) {
+  ppu.oam[addr] = value;
+}
+
+fn UInt8 Ppu.read_io(Ppu* ppu, UInt16 addr) {
   switch (addr) {
     case 0xFF40: return ppu.regs.lcdc;
     case 0xFF41: return ppu.regs.stat;
@@ -107,7 +126,7 @@ fn UInt8 Ppu.read(Ppu* ppu, UInt16 addr) {
   }
 }
 
-fn void Ppu.write(Ppu* ppu, UInt16 addr, UInt8 value) {
+fn void Ppu.write_io(Ppu* ppu, UInt16 addr, UInt8 value) {
   switch (addr) {
     case 0xFF40: ppu.regs.lcdc = value;
     case 0xFF41: ppu.regs.stat = value;
@@ -120,8 +139,8 @@ fn void Ppu.write(Ppu* ppu, UInt16 addr, UInt8 value) {
       ppu.regs.dma = value;
       UInt16 start_addr = value << 8;
       for (UInt16 i = 0; i < 0x9f; ++i) {
-        UInt8 data = ppu.system.mem.read(start_addr + i);
-        ppu.system.mem.write(0xFE00 + i, data);
+        UInt8 data = ppu.system.read(start_addr + i);
+        ppu.system.write(0xFE00 + i, data);
       }
     case 0xFF47: ppu.regs.bgp = value;
     case 0xFF48: ppu.regs.obp0 = value;
@@ -178,10 +197,10 @@ fn void Ppu.loadSprites(Ppu* ppu) {
 
   for (UInt8 i = 0; i < 40; ++i) {
     Oam oam;
-    oam.y = ppu.system.mem.read(oam_addr + (i * 4)/*sizeof OAM*/ + 0);
-    oam.x = ppu.system.mem.read(oam_addr + (i * 4)/*sizeof OAM*/ + 1);
-    oam.tile = ppu.system.mem.read(oam_addr + (i * 4)/*sizeof OAM*/ + 2);
-    oam.flags = ppu.system.mem.read(oam_addr + (i * 4)/*sizeof OAM*/ + 3);
+    oam.y = ppu.system.read(oam_addr + (i * 4)/*sizeof OAM*/ + 0);
+    oam.x = ppu.system.read(oam_addr + (i * 4)/*sizeof OAM*/ + 1);
+    oam.tile = ppu.system.read(oam_addr + (i * 4)/*sizeof OAM*/ + 2);
+    oam.flags = ppu.system.read(oam_addr + (i * 4)/*sizeof OAM*/ + 3);
 
     if (oam.x == 0) continue;
     if (ppu.curr_line_sprite_num >= 10) break;
@@ -262,8 +281,8 @@ fn void Ppu.tick(Ppu* ppu, UInt64 tick) {
           UInt16 tileCol = xPos / 8;
           Int16 tileNum;
           UInt16 tileAddress = backgroundMem + tileRow + tileCol;
-          tileNum = (UInt8)ppu.system.mem.read(tileAddress);
-          if (!unsig) tileNum = (Int8)ppu.system.mem.read(tileAddress);
+          tileNum = (UInt8)ppu.system.read(tileAddress);
+          if (!unsig) tileNum = (Int8)ppu.system.read(tileAddress);
 
           UInt16 tileLocation = tileData;
           if (unsig) { tileLocation += (tileNum * 16); }
@@ -272,8 +291,8 @@ fn void Ppu.tick(Ppu* ppu, UInt64 tick) {
 
           UInt8 line = yPos % 8;
           line *= 2;
-          UInt8 data1 = ppu.system.mem.read((UInt16)(tileLocation + line));
-          UInt8 data2 = ppu.system.mem.read((UInt16)(tileLocation + line + 1));
+          UInt8 data1 = ppu.system.read((UInt16)(tileLocation + line));
+          UInt8 data2 = ppu.system.read((UInt16)(tileLocation + line + 1));
 
           //io::printfn("Tile at %04x is %02x %02x", tileLocation + line, data1, data2);
 
@@ -302,8 +321,8 @@ fn void Ppu.tick(Ppu* ppu, UInt64 tick) {
             if (oam.xflip) bit = (UInt8)offset;
             
             UInt8 line = ppu.regs.ly - (oam.y - 16);
-            UInt8 data1 = ppu.system.mem.read((UInt16)(sprite_addr + oam.tile * 16 + line * 2));
-            UInt8 data2 = ppu.system.mem.read((UInt16)(sprite_addr + oam.tile * 16 + line * 2 + 1));            
+            UInt8 data1 = ppu.system.read((UInt16)(sprite_addr + oam.tile * 16 + line * 2));
+            UInt8 data2 = ppu.system.read((UInt16)(sprite_addr + oam.tile * 16 + line * 2 + 1));            
 
             UInt8 colourNum = ((data2 >> bit) & 0x1);
             colourNum <<= 1;
@@ -324,9 +343,9 @@ fn void Ppu.tick(Ppu* ppu, UInt64 tick) {
     ppu.regs.ly = (ppu.regs.ly + 1) % 154;
     if (ppu.regs.ly == 144) {
       ppu.system.lcd.redraw();
-      UInt8 interrupt = ppu.system.mem.read(0xFF0F);
+      UInt8 interrupt = ppu.system.read(0xFF0F);
       interrupt = interrupt | (1 << 0); // VBLANK interrupt
-      ppu.system.mem.write(0xFF0F, interrupt);
+      ppu.system.write(0xFF0F, interrupt);
       //io::printfn("Sending VBLANK interrupt");
     }
 
@@ -343,12 +362,12 @@ fn void Ppu.tick(Ppu* ppu, UInt64 tick) {
       }
       io::printfn("Tiledata 0x%04:", tileData);
       for(int i = 0; i < 512; ++i) {
-        io::printf("%02x ", ppu.system.mem.read((UInt16)(tileData + i)));
+        io::printf("%02x ", ppu.system.read((UInt16)(tileData + i)));
       } 
       io::printfn("");
       io::printfn("BackgroundMem 0x%04:", backgroundMem);
       for(int i = 0; i < 512; ++i) {
-        io::printf("%02x ", ppu.system.mem.read((UInt16)(backgroundMem + i)));
+        io::printf("%02x ", ppu.system.read((UInt16)(backgroundMem + i)));
       } 
       io::printfn("");
       io::printfn("");

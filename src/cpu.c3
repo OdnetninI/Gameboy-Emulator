@@ -111,7 +111,7 @@ fn void Cpu.tick(Cpu* cpu, UInt64 tick) {
 }
 
 fn Interrupts Cpu.getInterrupt(Cpu* cpu) {
-  UInt8 _if = cpu.system.mem.read(0xFF0F);
+  UInt8 _if = cpu.system.read(0xFF0F);
   if ((_if & (1 << 0)) != 0x00) return I_VBLANK;
   if ((_if & (1 << 1)) != 0x00) return I_LCD_STAT;
   if ((_if & (1 << 2)) != 0x00) return I_TIMER;
@@ -121,7 +121,7 @@ fn Interrupts Cpu.getInterrupt(Cpu* cpu) {
 }
 
 fn void Cpu.interrupt(Cpu* cpu, Interrupts interrupt) {
-  UInt8 _if = cpu.system.mem.read(0xFF0F);
+  UInt8 _if = cpu.system.read(0xFF0F);
   switch(interrupt) {
     case I_NONE: return;
     case I_VBLANK: _if = _if & (char)~(1 << 0);
@@ -130,9 +130,9 @@ fn void Cpu.interrupt(Cpu* cpu, Interrupts interrupt) {
     case I_SERIAL: _if = _if & (char)~(1 << 3);
     case I_JOYPAD: _if = _if & (char)~(1 << 4);
   }
-  cpu.system.mem.write(0xFF0F, _if);
+  cpu.system.write(0xFF0F, _if);
 
-  UInt8 ie = cpu.system.mem.read(0xFFFF);
+  UInt8 ie = cpu.system.read(0xFFFF);
   switch(interrupt) {
     case I_NONE: return;
     case I_VBLANK:
@@ -166,13 +166,13 @@ fn inst::Inst Cpu.fetch(Cpu* cpu) {
   inst::Inst inst;
 
   UInt16 pc = cpu.readReg16(PC);
-  UInt8 opcode = cpu.system.mem.read(pc);
+  UInt8 opcode = cpu.system.read(pc);
 
   inst.pc = pc;
   inst.isCB = opcode == 0xCB;
 
   if (inst.isCB) {
-    opcode = cpu.system.mem.read(pc + 1);
+    opcode = cpu.system.read(pc + 1);
     inst.mnemonic = inst::mnemonics_CB[opcode];
     inst.exec = inst::functions_CB[opcode];
   }
@@ -219,9 +219,9 @@ fn Register Cpu.readReg(Cpu* cpu, Reg reg) {
     case L: return cpu.regs.l;
     case F: return cpu.regs.f;
     case A: return cpu.regs.a;
-    case I_HL: return cpu.system.mem.read(cpu.regs.hl);
-    case I_HL_MINUS: Register value = cpu.system.mem.read(cpu.regs.hl); cpu.regs.hl-= 1; return value;
-    case I_HL_PLUS: Register value = cpu.system.mem.read(cpu.regs.hl); cpu.regs.hl+= 1; return value;
+    case I_HL: return cpu.system.read(cpu.regs.hl);
+    case I_HL_MINUS: Register value = cpu.system.read(cpu.regs.hl); cpu.regs.hl-= 1; return value;
+    case I_HL_PLUS: Register value = cpu.system.read(cpu.regs.hl); cpu.regs.hl+= 1; return value;
     default: 
       io::printfn("[CPU] Cannot read unkwown registr %d", reg);
       return 0;
@@ -238,9 +238,9 @@ fn void Cpu.writeReg(Cpu* cpu, Reg reg, Register value) {
     case L: cpu.regs.l = value;
     case F: cpu.regs.f = value;
     case A: cpu.regs.a = value;
-    case I_HL: return cpu.system.mem.write(cpu.regs.hl, value);
-    case I_HL_MINUS: cpu.system.mem.write(cpu.regs.hl, value); cpu.regs.hl-= 1;
-    case I_HL_PLUS: cpu.system.mem.write(cpu.regs.hl, value); cpu.regs.hl+= 1;
+    case I_HL: return cpu.system.write(cpu.regs.hl, value);
+    case I_HL_MINUS: cpu.system.write(cpu.regs.hl, value); cpu.regs.hl-= 1;
+    case I_HL_PLUS: cpu.system.write(cpu.regs.hl, value); cpu.regs.hl+= 1;
     default: 
       io::printfn("[CPU] Cannot write %02x unkwown registr %d", value, reg);
   }
