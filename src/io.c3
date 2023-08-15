@@ -3,6 +3,8 @@ module io;
 import types;
 import system;
 
+import std::io;
+
 struct Io {
   System* system;
   UInt8[0xe0] memory;
@@ -16,7 +18,7 @@ fn void Io.init(Io* io, System* system) {
 
 fn UInt8 Io.read(Io* io, UInt16 addr) {
   switch(addr) {
-    case 0xff04: return (UInt8)((io.system.sysclk >> 6) & 0xff);
+    case 0xff04: io::printfn("DIV -> %02x", (UInt8)((io.system.sysclk >> 6) & 0xff)); return (UInt8)((io.system.sysclk >> 6) & 0xff);
     case 0xff40..0xff4b: return io.system.ppu.read_io(addr);
     default: return io.memory[addr - 0xfea0];
   }

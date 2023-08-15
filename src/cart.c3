@@ -153,6 +153,7 @@ fn void Cart.load(Cart* cart) {
       }
     default: 
       io::printfn("Mapper type %02x not supported", cart.header.cartridge_type);
+      cart.header.cartridge_type = MAPPER_MCB3_RAM_BATTERY;
       return;
   }
 

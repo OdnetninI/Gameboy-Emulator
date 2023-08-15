@@ -257,6 +257,12 @@ fn void Ppu.tick(Ppu* ppu, UInt64 tick) {
       UInt8 wx = ppu.regs.wx - 7;
       UInt8 wy = ppu.regs.wy;
 
+      bool window = false;
+
+      if (ppu.regs.window_display) {
+        if (ppu.regs.ly >= wy) window = true;
+      }
+
       bool unsig = true;
       UInt16 tileData = 0x8000;
       if (!ppu.regs.bg_window_tile_select) {
@@ -265,11 +271,20 @@ fn void Ppu.tick(Ppu* ppu, UInt64 tick) {
       }
 
       UInt16 backgroundMem = 0x9800;
-      if(ppu.regs.bg_tile_map_select) {
-        backgroundMem = 0x9C00;
+      if (window) {
+        if (ppu.regs.window_tile_map_select) {
+          backgroundMem = 0x9c00;
+        }
+      }
+      else {
+        if(ppu.regs.bg_tile_map_select) {
+          backgroundMem = 0x9c00;
+        }
       }
 
       UInt8 yPos = sy + ppu.regs.ly;
+      if (window) yPos = ppu.regs.ly - wy;
+
       UInt16 tileRow = ((UInt8)(yPos / 8)) * 32;
     
       for (UInt8 x = 0; x < 160; ++x) {
@@ -278,6 +293,10 @@ fn void Ppu.tick(Ppu* ppu, UInt64 tick) {
         if (ppu.regs.bg_window_show) {
           //ppu.system.lcd.framebuffer[ppu.regs.ly][x] = ppu.system.lcd.framebuffer[ppu.regs.ly][x] == 0 ? 1 : 0;
           UInt8 xPos = x + sx;
+          if (window) {
+            xPos = x - wx;
+          }
+
           UInt16 tileCol = xPos / 8;
           Int16 tileNum;
           UInt16 tileAddress = backgroundMem + tileRow + tileCol;
@@ -311,7 +330,7 @@ fn void Ppu.tick(Ppu* ppu, UInt64 tick) {
         if (ppu.regs.obj_show) {
           for (UInt8 i = 0; i < ppu.curr_line_sprite_num; ++i) {
             Oam oam = ppu.curr_line_sprites[i];
-            UInt8 sp_x = oam.x - 8 + (sx % 8);
+            UInt8 sp_x = oam.x - 8;
             if (x > (sp_x + 8)) continue;
             
             int offset = x - sp_x;
@@ -320,7 +339,12 @@ fn void Ppu.tick(Ppu* ppu, UInt64 tick) {
             UInt8 bit = (UInt8)((int)7 - offset);
             if (oam.xflip) bit = (UInt8)offset;
             
-            UInt8 line = ppu.regs.ly - (oam.y - 16);
+            int line = ppu.regs.ly - (oam.y - 16);
+            if (oam.yflip) {
+              line -= ppu.regs.obj_size ? 16 : 8;
+              line *= -1;
+              line -= 1;
+            }
             UInt8 data1 = ppu.system.read((UInt16)(sprite_addr + oam.tile * 16 + line * 2));
             UInt8 data2 = ppu.system.read((UInt16)(sprite_addr + oam.tile * 16 + line * 2 + 1));            
 

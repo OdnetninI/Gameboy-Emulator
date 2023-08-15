@@ -461,6 +461,17 @@ fn void daaReg(Cpu* cpu, Inst* inst, Reg reg) {
   cpu.setFlags(value == 0x00, neg, false, carry);
 }
 
+fn void scf(Cpu* cpu, Inst* inst) {
+  bool zero = cpu.readFlag(Z);
+  cpu.setFlags(zero, false, false, true);
+}
+
+fn void ccf(Cpu* cpu, Inst* inst) {
+  bool zero = cpu.readFlag(Z);
+  bool carry = cpu.readFlag(C);
+  cpu.setFlags(zero, false, false, !carry);
+}
+
 // RLC
 fn void rotateLeft(Cpu* cpu, Inst* inst, Reg reg) {
   UInt8 value = cpu.readReg(reg);
@@ -565,6 +576,7 @@ fn void init() {
   functions[0x34] = fn (cpu, inst) => incReg(cpu, inst, I_HL);
   functions[0x35] = fn (cpu, inst) => decReg(cpu, inst, I_HL);
   functions[0x36] = fn (cpu, inst) => imm2Reg(cpu, inst, I_HL);
+  functions[0x37] = fn (cpu, inst) => scf(cpu, inst);
   functions[0x38] = fn (cpu, inst) => jumpImmRel(cpu, inst, C);
   functions[0x39] = fn (cpu, inst) => addReg16Reg16(cpu, inst, HL, SP);
   functions[0x3a] = fn (cpu, inst) => memReg2Reg(cpu, inst, A, HL_MINUS);
@@ -572,6 +584,7 @@ fn void init() {
   functions[0x3c] = fn (cpu, inst) => incReg(cpu, inst, A);
   functions[0x3d] = fn (cpu, inst) => decReg(cpu, inst, A);
   functions[0x3e] = fn (cpu, inst) => imm2Reg(cpu, inst, A);
+  functions[0x3f] = fn (cpu, inst) => ccf(cpu, inst);
 
   functions[0x40] = fn (cpu, inst) => reg2Reg(cpu, inst, B, B);
   functions[0x41] = fn (cpu, inst) => reg2Reg(cpu, inst, B, C);
