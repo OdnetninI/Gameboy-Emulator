@@ -76,7 +76,7 @@ fn void adcRegImm8(Cpu* cpu, Inst* inst, Reg _dest) {
   UInt8 carry = cpu.readFlag(C) ? 1 : 0;
   UInt8 value = dest + src + carry;
   cpu.writeReg(_dest, value);
-  cpu.setFlags(value == 0x00, false, ((dest & 0x0F) + (src & 0x0F) + carry) > 0x0F, (value < dest) || (value < src));
+  cpu.setFlags(value == 0x00, false, ((dest & 0x0F) + (src & 0x0F) + carry) > 0x0F, (value < (dest + carry)) || (value < (src + carry)));
 }
 
 fn void addReg16Reg16(Cpu* cpu, Inst* inst, Reg16 _dest, Reg16 _src) {
@@ -84,7 +84,7 @@ fn void addReg16Reg16(Cpu* cpu, Inst* inst, Reg16 _dest, Reg16 _src) {
   UInt16 src = cpu.readReg16(_src);
   UInt16 value = dest + src;
   cpu.writeReg16(_dest, value);
-  cpu.setFlags(cpu.readFlag(Z), false, ((dest & 0x0FFF) + (src & 0x0FFF)) > 0x1000, (value < src) || (value < dest));
+  cpu.setFlags(cpu.readFlag(Z), false, ((dest & 0x0FFF) + (src & 0x0FFF)) > 0x0FFF, (value < src) || (value < dest));
 }
 
 fn void addReg16Imm8(Cpu* cpu, Inst* inst, Reg16 _dest) {
@@ -92,8 +92,11 @@ fn void addReg16Imm8(Cpu* cpu, Inst* inst, Reg16 _dest) {
   Int8 src = cpu.system.read(inst.pc + 1);
   UInt16 value = dest + src;
   cpu.writeReg16(_dest, value);
-  // TODO update flags H and C correctly
-  cpu.setFlags(false, false, false, false);
+
+  bool carry = ((value & 0xFF) < src) || ((value & 0xff) < (dest & 0xff));
+  if (src < 0) carry = (value & 0xff) <= (dest & 0xff);
+
+  cpu.setFlags(false, false, ((dest & 0x0F) + (src & 0x0F)) > 0x0F, carry);
 }
 
 fn void reg162Reg16(Cpu* cpu, Inst* inst, Reg16 _dest, Reg16 _src) {
@@ -104,9 +107,13 @@ fn void reg162Reg16(Cpu* cpu, Inst* inst, Reg16 _dest, Reg16 _src) {
 fn void reg162Reg16addImm8(Cpu* cpu, Inst* inst, Reg16 _dest, Reg16 _src) {
   UInt16 src = cpu.readReg16(_src);
   Int8 offset = cpu.system.read(inst.pc + 1);
-  cpu.writeReg16(_dest, src + offset);
-  // TODO: update H and C flags correctly
-  cpu.setFlags(false, false, false, false);
+  UInt16 value = src + offset;
+  cpu.writeReg16(_dest, value);
+  
+  bool carry = ((value & 0xFF) < offset) || ((value & 0xff) < (src & 0xff));
+  if (offset < 0) carry = (value & 0xff) <= (src & 0xff);
+
+  cpu.setFlags(false, false, ((src & 0x0F) + (offset & 0x0F)) > 0x0F, carry);
 }
 
 fn void addRegImm8(Cpu* cpu, Inst* inst, Reg _dest) {
@@ -165,16 +172,20 @@ fn void subRegImm8(Cpu* cpu, Inst* inst, Reg _dest) {
 
 fn void sbcRegReg(Cpu* cpu, Inst* inst, Reg _dest, Reg _src) {
   UInt8 dest = cpu.readReg(_dest);
-  UInt8 src = cpu.readReg(_src) + (cpu.readFlag(C) ? 1 : 0);
-  cpu.writeReg(_dest, dest - src);
-  cpu.setFlags(dest == src, true, (dest & 0x0F) < (src & 0xF), dest < src);
+  UInt8 carry = cpu.readFlag(C) ? 1 : 0;
+  UInt8 src = cpu.readReg(_src);
+  UInt8 value = dest - (src + carry);
+  cpu.writeReg(_dest, value);
+  cpu.setFlags(value == 0x00, true, ((dest & 0x0F) < ((src + carry) & 0xF)) && (((src & 0xF) + carry) != 0x00), dest < (src + carry));
 }
 
 fn void sbcRegImm8(Cpu* cpu, Inst* inst, Reg _dest) {
   UInt8 dest = cpu.readReg(_dest);
-  UInt8 src = cpu.system.read(inst.pc + 1) + (cpu.readFlag(C) ? 1 : 0);
-  cpu.writeReg(_dest, dest - src);
-  cpu.setFlags(dest == src, true, (dest & 0x0F) < (src & 0xF), dest < src);
+  UInt8 carry = cpu.readFlag(C) ? 1 : 0;
+  UInt8 src = cpu.system.read(inst.pc + 1);
+  UInt8 value = dest - (src + carry);
+  cpu.writeReg(_dest, value);
+  cpu.setFlags(value == 0x00, true, ((dest & 0x0F) < ((src + carry) & 0xF)) && (((src & 0xF) + carry) != 0x00), dest < (src + carry));
 }
 
 fn void setInterrupts(Cpu* cpu, Inst* inst, bool enabled) {
@@ -363,16 +374,16 @@ fn void rst(Cpu* cpu, Inst* inst, UInt16 addr) {
 
 fn void incReg(Cpu* cpu, Inst* inst, Reg reg) {
   UInt8 data = cpu.readReg(reg);
-  data++;
-  cpu.writeReg(reg, data);
-  cpu.setFlags(data == 0x00, false, data == 0x10, cpu.regs.carry);
+  UInt8 new_data = data + 1;
+  cpu.writeReg(reg, new_data);
+  cpu.setFlags(new_data == 0x00, false, ((data & 0x0F)+1) == 0x10, cpu.regs.carry);
 }
 
 fn void decReg(Cpu* cpu, Inst* inst, Reg reg) {
   UInt8 data = cpu.readReg(reg);
-  data--;
-  cpu.writeReg(reg, data);
-  cpu.setFlags(data == 0x00, false, data == 0x0F, cpu.regs.carry);
+  UInt8 new_data = data - 1;
+  cpu.writeReg(reg, new_data);
+  cpu.setFlags(new_data == 0x00, true, (((data & 0x0F)-1) & 0xFF) == 0xFF, cpu.regs.carry);
 }
 
 fn void incReg16(Cpu* cpu, Inst* inst, Reg16 reg) {
@@ -490,6 +501,23 @@ fn void rotateRight(Cpu* cpu, Inst* inst, Reg reg) {
   cpu.setFlags(value == 0x00, false, false, carry == 0x01);
 }
 
+fn void rotateLeftNOZ(Cpu* cpu, Inst* inst, Reg reg) {
+  UInt8 value = cpu.readReg(reg);
+  UInt8 carry = value >> 7;
+  value = value << 1;
+  value += carry;
+  cpu.writeReg(reg, value);
+  cpu.setFlags(false, false, false, carry == 0x01);
+}
+
+fn void rotateRightNOZ(Cpu* cpu, Inst* inst, Reg reg) {
+  UInt8 value = cpu.readReg(reg);
+  UInt8 carry = value & 0x1;
+  value = value >> 1 | (carry << 7);
+  cpu.writeReg(reg, value);
+  cpu.setFlags(false, false, false, carry == 0x01);
+}
+
 // RL
 fn void rotateLeftWithCarry(Cpu* cpu, Inst* inst, Reg reg) {
   UInt8 value = cpu.readReg(reg);
@@ -510,6 +538,25 @@ fn void rotateRightWithCarry(Cpu* cpu, Inst* inst, Reg reg) {
   cpu.setFlags(value == 0x00, false, false, new_carry == 0x01);
 }
 
+fn void rotateLeftWithCarryNOZ(Cpu* cpu, Inst* inst, Reg reg) {
+  UInt8 value = cpu.readReg(reg);
+  UInt8 new_carry = value >> 7;
+  UInt8 carry = cpu.readFlag(C) ? 1 : 0;
+  value = value << 1;
+  value += carry;
+  cpu.writeReg(reg, value);
+  cpu.setFlags(false, false, false, new_carry == 0x01);
+}
+
+fn void rotateRightWithCarryNOZ(Cpu* cpu, Inst* inst, Reg reg) {
+  UInt8 value = cpu.readReg(reg);
+  UInt8 new_carry = value & 0x1;
+  UInt8 carry = cpu.readFlag(C) ? 1 : 0;
+  value = (value >> 1) | (carry << 7);
+  cpu.writeReg(reg, value);
+  cpu.setFlags(false, false, false, new_carry == 0x01);
+}
+
 // Instructions
 InstExec[256] functions;
 InstExec[256] functions_CB;
@@ -526,7 +573,7 @@ fn void init() {
   functions[0x04] = fn (cpu, inst) => incReg(cpu, inst, B);
   functions[0x05] = fn (cpu, inst) => decReg(cpu, inst, B);
   functions[0x06] = fn (cpu, inst) => imm2Reg(cpu, inst, B);
-  functions[0x07] = fn (cpu, inst) => rotateLeft(cpu, inst, A);
+  functions[0x07] = fn (cpu, inst) => rotateLeftNOZ(cpu, inst, A);
   functions[0x08] = fn (cpu, inst) => reg162MemImm16(cpu, inst, SP);
   functions[0x09] = fn (cpu, inst) => addReg16Reg16(cpu, inst, HL, BC);
   functions[0x0a] = fn (cpu, inst) => memReg2Reg(cpu, inst, A, BC);
@@ -534,7 +581,7 @@ fn void init() {
   functions[0x0c] = fn (cpu, inst) => incReg(cpu, inst, C);
   functions[0x0d] = fn (cpu, inst) => decReg(cpu, inst, C);
   functions[0x0e] = fn (cpu, inst) => imm2Reg(cpu, inst, C);
-  functions[0x0f] = fn (cpu, inst) => rotateRight(cpu, inst, A);
+  functions[0x0f] = fn (cpu, inst) => rotateRightNOZ(cpu, inst, A);
 
   functions[0x11] = fn (cpu, inst) => imm2Reg16(cpu, inst, DE);
   functions[0x12] = fn (cpu, inst) => reg2MemReg16(cpu, inst, A, DE);
@@ -542,7 +589,7 @@ fn void init() {
   functions[0x14] = fn (cpu, inst) => incReg(cpu, inst, D);
   functions[0x15] = fn (cpu, inst) => decReg(cpu, inst, D);
   functions[0x16] = fn (cpu, inst) => imm2Reg(cpu, inst, D);
-  functions[0x17] = fn (cpu, inst) => rotateLeftWithCarry(cpu, inst, A);
+  functions[0x17] = fn (cpu, inst) => rotateLeftWithCarryNOZ(cpu, inst, A);
   functions[0x18] = fn (cpu, inst) => jumpImmRel(cpu, inst, NONE);
   functions[0x19] = fn (cpu, inst) => addReg16Reg16(cpu, inst, HL, DE);
   functions[0x1a] = fn (cpu, inst) => memReg2Reg(cpu, inst, A, DE);
@@ -550,7 +597,7 @@ fn void init() {
   functions[0x1c] = fn (cpu, inst) => incReg(cpu, inst, E);
   functions[0x1d] = fn (cpu, inst) => decReg(cpu, inst, E);
   functions[0x1e] = fn (cpu, inst) => imm2Reg(cpu, inst, E);
-  functions[0x1f] = fn (cpu, inst) => rotateRightWithCarry(cpu, inst, A);
+  functions[0x1f] = fn (cpu, inst) => rotateRightWithCarryNOZ(cpu, inst, A);
 
   functions[0x20] = fn (cpu, inst) => jumpImmRel(cpu, inst, NZ);
   functions[0x21] = fn (cpu, inst) => imm2Reg16(cpu, inst, HL);

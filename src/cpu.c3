@@ -95,6 +95,17 @@ fn void Cpu.init(Cpu* cpu, System* system) {
   cpu.system = system;
   cpu.regs.pc = 0x0000;
   cpu.ime = false;
+/*
+  cpu.regs.a = 0x01;
+  cpu.regs.f = 0xB0;
+  cpu.regs.b = 0x00;
+  cpu.regs.c = 0x13;
+  cpu.regs.d = 0x00;
+  cpu.regs.e = 0xD8;
+  cpu.regs.h = 0x01;
+  cpu.regs.l = 0x4D;
+  cpu.regs.sp = 0xfffe;
+  cpu.regs.pc = 0x0100;*/
 }
 
 fn void Cpu.tick(Cpu* cpu, UInt64 tick) {
@@ -105,6 +116,7 @@ fn void Cpu.tick(Cpu* cpu, UInt64 tick) {
   if (tick >= cpu.tick_counter) {
     //if (cpu.regs.pc > 0xff) cpu.print();
     //cpu.print();
+    //cpu.print2();
     inst::Inst inst = cpu.fetch();
     cpu.exec(inst);
   }
@@ -306,4 +318,9 @@ fn void Cpu.setFlags(Cpu* cpu, bool zero, bool neg, bool half, bool carry) {
 fn void Cpu.print(Cpu* cpu) {
   io::printfn("%08d -> PC(%04x) SP(%04x) BC(%04x) DE(%04x) HL(%04x) AF(%04x) [Z:%s N:%s H:%s C:%s IME:%s]",
               cpu.tick_counter, cpu.regs.pc, cpu.regs.sp, cpu.regs.bc, cpu.regs.de, cpu.regs.hl, cpu.regs.af, cpu.regs.zero, cpu.regs.neg, cpu.regs.half, cpu.regs.carry, cpu.ime);
+}
+fn void Cpu.print2(Cpu* cpu) {
+  io::printfn("A:%02X F:%02X B:%02X C:%02X D:%02X E:%02X H:%02X L:%02X SP:%04X PC:%04X PCMEM:%02X,%02X,%02X,%02X",
+              cpu.regs.a, cpu.regs.f, cpu.regs.b, cpu.regs.c, cpu.regs.d, cpu.regs.e, cpu.regs.h, cpu.regs.l, cpu.regs.sp, cpu.regs.pc,
+              cpu.system.read(cpu.regs.pc),cpu.system.read(cpu.regs.pc+1),cpu.system.read(cpu.regs.pc+2),cpu.system.read(cpu.regs.pc+3));
 }

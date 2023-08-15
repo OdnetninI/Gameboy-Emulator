@@ -112,7 +112,7 @@ fn UInt8 Ppu.read_io(Ppu* ppu, UInt16 addr) {
     case 0xFF41: return ppu.regs.stat;
     case 0xFF42: return ppu.regs.scy;
     case 0xFF43: return ppu.regs.scx;
-    case 0xFF44: return ppu.regs.ly;
+    case 0xFF44: return ppu.regs.ly; //0x90;
     case 0xFF45: return ppu.regs.lyc;
     case 0xFF46: return ppu.regs.dma;
     case 0xFF47: return ppu.regs.bgp;

@@ -18,6 +18,8 @@ fn void main(String[] args) {
   system.cart.printHeader();
   system.cart.load();
 
+  //system.bios_enabled = false;
+
   while (true) {
     system.lcd.update();
     system.tick();

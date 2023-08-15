@@ -39,5 +39,11 @@ fn void updateKeys(System* system) {
     if(raylib::is_key_down(raylib::keyboard::BACKSPACE)) joypad.up_select = false; 
   }
 
+  if ((joypad.data & 0x0F) != 0x00) {
+    UInt8 _if = system.read(0xFF0F);
+    _if = _if | (1 << 4);
+    system.write(0xFF0F, _if);
+  }
+
   system.write(0xFF00, joypad.data);
 }
