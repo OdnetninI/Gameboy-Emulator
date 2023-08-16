@@ -13,6 +13,7 @@ struct Mapper_MCB1 {
 fn UInt8 read(Cart* cart, UInt16 addr) {
   UInt8 high_map = cart.mcb1.high_bank;
     switch(cart.header.rom_size) {
+      case cart::ROM_512_KIB:
       case cart::ROM_1_MB: high_map = 0x00;
       case cart::ROM_2_MB: high_map &= 0x01;
       case cart::ROM_4_MB: if (high_map > 0x10) high_map = 0x10;

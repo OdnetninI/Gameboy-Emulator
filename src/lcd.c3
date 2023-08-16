@@ -52,6 +52,7 @@ fn void Lcd.redraw(Lcd* lcd) {
       }
     }
   raylib::end_texture_mode();
+
   raylib::begin_drawing();
     raylib::clear_background(raylib::MAGENTA);
     raylib::draw_texture(lcd.target.texture, 0, 0, raylib::RAYWHITE);

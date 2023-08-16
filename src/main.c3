@@ -4,6 +4,7 @@ import types;
 
 import inst;
 import system;
+import debug;
 
 fn void main(String[] args) {
   inst::init();
@@ -22,7 +23,13 @@ fn void main(String[] args) {
 
   while (true) {
     system.lcd.update();
-    system.tick();
+    debug::checkForDebugTrigger();
+    if (debug::isDebugTriggered()) {
+      debug::processCMD(&system);
+    }
+    else {
+      system.tick();
+    }
   }
 
   //system.lcd.close();

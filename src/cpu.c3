@@ -89,12 +89,20 @@ struct Cpu {
   UInt64 tick_counter;
   System* system;
   bool ime;
+
+  // For debugging
+  bool cpu_executed_inst;
+  Inst last_executed_inst;
+  bool trace;
 }
 
 fn void Cpu.init(Cpu* cpu, System* system) {
   cpu.system = system;
   cpu.regs.pc = 0x0000;
   cpu.ime = false;
+
+  cpu.cpu_executed_inst = false;
+  cpu.trace = false;
 /*
   cpu.regs.a = 0x01;
   cpu.regs.f = 0xB0;
@@ -114,12 +122,18 @@ fn void Cpu.tick(Cpu* cpu, UInt64 tick) {
     cpu.interrupt(interrupt);
   }
   if (tick >= cpu.tick_counter) {
-    //if (cpu.regs.pc > 0xff) cpu.print();
+    if (cpu.trace) cpu.print();
     //cpu.print();
     //cpu.print2();
     inst::Inst inst = cpu.fetch();
     cpu.exec(inst);
+
+    cpu.last_executed_inst = inst;
+    cpu.cpu_executed_inst = true;
   }
+  else {
+    cpu.cpu_executed_inst = false;
+  }  
 }
 
 fn Interrupts Cpu.getInterrupt(Cpu* cpu) {
@@ -202,7 +216,7 @@ fn inst::Inst Cpu.fetch(Cpu* cpu) {
 
 fn void Cpu.exec(Cpu* cpu, inst::Inst inst) {
   UInt16 pc = cpu.readReg16(PC);
-  //if (cpu.regs.pc > 0xff) io::printfn("Executing %s", inst.mnemonic)!!;
+  if (cpu.trace) io::printfn("Executing %s", inst.mnemonic)!!;
   //io::printfn("Executing %s", inst.mnemonic)!!;
   inst.exec(cpu, &inst);
 
