@@ -3,24 +3,64 @@ module cart;
 import types;
 import system;
 
+import mappers::nomapper;
+import mappers::mcb1;
+import mappers::mcb3;
+import mappers::mcb5;
+
 import std::io;
 
 // Mappers
-const UInt8 MAPPER_NO_ROM = 0x00;
+const UInt8 MAPPER_ROM = 0x00;
+const UInt8 MAPPER_MCB1 = 0x01;
+const UInt8 MAPPER_MCB1_RAM = 0x02;
+const UInt8 MAPPER_MCB1_RAM_BATTERY = 0x03;
+const UInt8 MAPPER_MCB2 = 0x05;
+const UInt8 MAPPER_MCB2_BATTERY = 0x06;
+const UInt8 MAPPER_ROM_RAM = 0x08;
+const UInt8 MAPPER_ROM_RAM_BATTERY = 0x09;
+const UInt8 MAPPER_MMM01 = 0x0b;
+const UInt8 MAPPER_MMM01_RAM = 0x0c;
+const UInt8 MAPPER_MMM01_RAM_BATTERY = 0x0d;
+const UInt8 MAPPER_MCB3_TIMER_BATTERY = 0x0f;
+const UInt8 MAPPER_MCB3_TIMER_RAM_BATTERY = 0x10;
+const UInt8 MAPPER_MCB3 = 0x11;
+const UInt8 MAPPER_MCB3_RAM = 0x12;
 const UInt8 MAPPER_MCB3_RAM_BATTERY = 0x13;
+const UInt8 MAPPER_MCB5 = 0x19;
+const UInt8 MAPPER_MCB5_RAM = 0x1a;
+const UInt8 MAPPER_MCB5_RAM_BATTERY = 0x1b;
+const UInt8 MAPPER_MCB5_RUMBLE = 0x1c;
+const UInt8 MAPPER_MCB5_RUMBLE_RAM = 0x1d;
+const UInt8 MAPPER_MCB5_RUMBLE_RAM_BATTERY = 0x1e;
+const UInt8 MAPPER_MCB6 = 0x20;
+const UInt8 MAPPER_MCB7_SENSOR_RUMBLE_RAM_BATTERY = 0x22;
+const UInt8 MAPPER_POCKET_CAMERA = 0xfc;
+const UInt8 MAPPER_BANDAI_TAMA5 = 0xfd;
+const UInt8 MAPPER_HUC3 = 0xfe;
+const UInt8 MAPPER_HUC1_RAM_BATTERY = 0xff;
 
 // ROM Sizes
 const UInt8 ROM_32_KIB = 0x00;
+const UInt8 ROM_64_KIB = 0x01;
+const UInt8 ROM_128_KIB = 0x02;
+const UInt8 ROM_256_KIB = 0x03;
+const UInt8 ROM_512_KIB = 0x04;
 const UInt8 ROM_1_MB = 0x05;
 const UInt8 ROM_2_MB = 0x06;
 const UInt8 ROM_4_MB = 0x07;
 const UInt8 ROM_8_MB = 0x08;
+const UInt8 ROM_1_1_MB = 0x52;
+const UInt8 ROM_1_2_MB = 0x53;
+const UInt8 ROM_1_5_MB = 0x54;
 
 // RAM Sizes
 const UInt8 RAM_NO_RAM = 0x00;
 const UInt8 RAM_UNUSED = 0x01;
 const UInt8 RAM_8KIB = 0x02;
 const UInt8 RAM_32KIB = 0x03;
+const UInt8 RAM_128KIB = 0x04;
+const UInt8 RAM_64KIB = 0x05;
 
 struct Header {
   UInt8[16] title;
@@ -37,26 +77,27 @@ struct Header {
 }
 
 struct Cart {
-  UInt8[] cart;
+  String filename;
+  String save_filename;
   Header header;
+  UInt8[] cart;
+  UInt8[] ram;
   System* system;
 
-  UInt8[0x2000] ram;
-  bool enabled_ram;
-  UInt8 low_bank;
-  UInt8 high_bank;
-  bool advanced_banking_mode;
+  // Mappers Data
+  Mapper_MCB1 mcb1;
+  Mapper_MCB3 mcb3;
+  Mapper_MCB5 mcb5;
 }
 
 fn void Cart.init(Cart* cart, System* system) {
   cart.system = system;
-  cart.enabled_ram = false;
-  cart.low_bank = 0x00;
-  cart.high_bank = 0x00;
-  cart.advanced_banking_mode = false;
 }
 
 fn void Cart.open(Cart* cart, String filename) {
+  cart.filename = filename;
+  cart.save_filename = filename.concat(".sav");
+  io::printfn("Cart: %s\nSave: %s", cart.filename, cart.save_filename);
   io::File! game_file = io::file::open(filename, "rb");
   usz size = game_file.seek(0, END)!!;
   io::printfn("Cart size: %d", size);
@@ -80,98 +121,168 @@ fn void Cart.open(Cart* cart, String filename) {
 
 fn UInt8 Cart.read(Cart* cart, UInt16 addr) {
   switch(cart.header.cartridge_type) {
-    case MAPPER_NO_ROM: return cart.cart[addr];
-    case MAPPER_MCB3_RAM_BATTERY:
-    UInt8 high_map = cart.high_bank;
-    switch(cart.header.rom_size) {
-      case ROM_1_MB: high_map = 0x00;
-      case ROM_2_MB: high_map &= 0x01;
-      case ROM_4_MB: if (high_map > 0x10) high_map = 0x10;
-      case ROM_8_MB: ;
-    }
-      UInt32 full_addr = addr;
-      if (addr <= 0x3fff) {
-        if (cart.advanced_banking_mode) {
-          full_addr = (full_addr & 0x3fff) | (high_map << 19);
-        }
-      }
-      else  {
-        full_addr = (full_addr & 0x3fff) | (high_map << 19) | (cart.low_bank << 14);
-      }
-      //if (full_addr != addr) io::printfn("[Bank: %02x %02x]Accessing Banked %04x -> %06x", cart.high_bank, cart.low_bank, addr, full_addr);
-      return cart.cart[full_addr];
+    case MAPPER_ROM: 
+    case MAPPER_ROM_RAM:
+    case MAPPER_ROM_RAM_BATTERY:
+      return mappers::nomapper::read(cart, addr);
+
+    case MAPPER_MCB1:
+    case MAPPER_MCB1_RAM:
+    case MAPPER_MCB1_RAM_BATTERY:
+      return mappers::mcb1::read(cart, addr);
+
+    case MAPPER_MCB3:
+    case MAPPER_MCB3_RAM:
+    case MAPPER_MCB3_RAM_BATTERY: 
+      return mappers::mcb3::read(cart, addr);
+
+    case MAPPER_MCB5:
+    case MAPPER_MCB5_RAM:
+    case MAPPER_MCB5_RAM_BATTERY:
+    case MAPPER_MCB5_RUMBLE:
+    case MAPPER_MCB5_RUMBLE_RAM:
+    case MAPPER_MCB5_RUMBLE_RAM_BATTERY:
+      return mappers::mcb5::read(cart, addr);
+    
   }
   return 0xff;
 }
 
 fn void Cart.write(Cart* cart, UInt16 addr, UInt8 value) {
   switch(cart.header.cartridge_type) {
-    case MAPPER_NO_ROM: return;
+    case MAPPER_ROM: 
+    case MAPPER_ROM_RAM:
+    case MAPPER_ROM_RAM_BATTERY:
+      mappers::nomapper::write(cart, addr, value);
+
+    case MAPPER_MCB1:
+    case MAPPER_MCB1_RAM:
+    case MAPPER_MCB1_RAM_BATTERY:
+      mappers::mcb1::write(cart, addr, value);
+
+    case MAPPER_MCB3:
+    case MAPPER_MCB3_RAM:
     case MAPPER_MCB3_RAM_BATTERY: 
-      switch(addr) {
-        case 0x0000..0x1fff: 
-          if ((value & 0x0A) != 0) { cart.enabled_ram = true; }
-          else { cart.enabled_ram = false; }
-        case 0x2000..0x3fff: 
-          cart.low_bank = value & 0x1f;
-        case 0x4000..0x5fff:
-          cart.high_bank = value & 0x03;
-        case 0x6000..0x7fff:
-          cart.advanced_banking_mode = value == 0x01;
-      }
+      mappers::mcb3::write(cart, addr, value);
+
+    case MAPPER_MCB5:
+    case MAPPER_MCB5_RAM:
+    case MAPPER_MCB5_RAM_BATTERY:
+    case MAPPER_MCB5_RUMBLE:
+    case MAPPER_MCB5_RUMBLE_RAM:
+    case MAPPER_MCB5_RUMBLE_RAM_BATTERY:
+      mappers::mcb5::write(cart, addr, value);
   }
 }
 
 fn UInt8 Cart.ram_read(Cart* cart, UInt16 addr) {
-  if (cart.header.ram_size == RAM_NO_RAM || cart.header.ram_size == RAM_UNUSED) return 0xff;
-  if (!cart.enabled_ram) return 0xff;
-  return cart.ram[addr];
+  switch(cart.header.cartridge_type) {
+    case MAPPER_ROM: 
+    case MAPPER_ROM_RAM:
+    case MAPPER_ROM_RAM_BATTERY:
+      return mappers::nomapper::ram_read(cart, addr);
+
+    case MAPPER_MCB1:
+    case MAPPER_MCB1_RAM:
+    case MAPPER_MCB1_RAM_BATTERY:
+      return mappers::mcb1::ram_read(cart, addr);
+
+    case MAPPER_MCB3:
+    case MAPPER_MCB3_RAM:
+    case MAPPER_MCB3_RAM_BATTERY: 
+      return mappers::mcb3::ram_read(cart, addr);
+
+    case MAPPER_MCB5:
+    case MAPPER_MCB5_RAM:
+    case MAPPER_MCB5_RAM_BATTERY:
+    case MAPPER_MCB5_RUMBLE:
+    case MAPPER_MCB5_RUMBLE_RAM:
+    case MAPPER_MCB5_RUMBLE_RAM_BATTERY:
+      return mappers::mcb5::ram_read(cart, addr);
+  }
+  return 0xff;
 }
 
 fn void Cart.ram_write(Cart* cart, UInt16 addr, UInt8 value) {
-  if (cart.header.ram_size == RAM_NO_RAM || cart.header.ram_size == RAM_UNUSED) return;
-  if (!cart.enabled_ram) return;
-  cart.ram[addr] = value;
+  switch(cart.header.cartridge_type) {
+    case MAPPER_ROM: 
+    case MAPPER_ROM_RAM:
+    case MAPPER_ROM_RAM_BATTERY:
+      mappers::nomapper::ram_write(cart, addr, value);
+
+    case MAPPER_MCB1:
+    case MAPPER_MCB1_RAM:
+    case MAPPER_MCB1_RAM_BATTERY:
+      mappers::mcb1::ram_write(cart, addr, value);
+
+    case MAPPER_MCB3:
+    case MAPPER_MCB3_RAM:
+    case MAPPER_MCB3_RAM_BATTERY: 
+      mappers::mcb3::ram_write(cart, addr, value);
+
+    case MAPPER_MCB5:
+    case MAPPER_MCB5_RAM:
+    case MAPPER_MCB5_RAM_BATTERY:
+    case MAPPER_MCB5_RUMBLE:
+    case MAPPER_MCB5_RUMBLE_RAM:
+    case MAPPER_MCB5_RUMBLE_RAM_BATTERY:
+      mappers::mcb5::ram_write(cart, addr, value);
+  }
+  cart.save();
 }
 
 fn void Cart.close(Cart* cart) {
   free(cart.cart);
 }
 
+fn void Cart.save(Cart* cart) {
+  if (cart.header.ram_size == RAM_NO_RAM || cart.header.ram_size == RAM_UNUSED) return;
+  io::File! save_file = io::file::open(cart.save_filename, "wb");
+  save_file.write(cart.ram)!!;
+  save_file.close()!!;
+}
+
 fn void Cart.load(Cart* cart) {
-  switch(cart.header.cartridge_type) {
-    case MAPPER_NO_ROM: 
-      if (cart.header.rom_size != ROM_32_KIB) {
-        io::printfn("Found ROM size %02x with no mapper", cart.header.rom_size);
-      }
-    case MAPPER_MCB3_RAM_BATTERY:
-      if (cart.header.ram_size == RAM_NO_RAM) {
-        io::printfn("MCB3 Mapper with Ram and Battery, but Cart does not have RAM");
-      }
-      if (cart.header.ram_size == ROM_32_KIB) {
-        io::printfn("MCB3 Mapper with Ram and Battery, but Cart only has 2 banks");
-      }
+  /*switch(cart.header.cartridge_type) {
+    case MAPPER_ROM: ;
+    case MAPPER_MCB3_RAM_BATTERY: ;
     default: 
       io::printfn("Mapper type %02x not supported", cart.header.cartridge_type);
       cart.header.cartridge_type = MAPPER_MCB3_RAM_BATTERY; //MAPPER_NO_ROM; 
-      return;
   }
 
   switch(cart.header.rom_size) {
     case ROM_32_KIB: ;
+    case ROM_64_KIB: ;
+    case ROM_128_KIB: ;
+    case ROM_256_KIB: ;
+    case ROM_512_KIB: ;
     case ROM_1_MB: ;
+    case ROM_2_MB: ;
+    case ROM_4_MB: ;
+    case ROM_8_MB: ;
+    case ROM_1_1_MB: ;
+    case ROM_1_2_MB: ;
+    case ROM_1_5_MB: ;
     default:
       io::printfn("ROM size %02x not supported", cart.header.rom_size);
-      return;
-  }
+  }*/
 
   switch(cart.header.ram_size) {
-    case RAM_NO_RAM: ;
-    case RAM_UNUSED: ;
-    case RAM_32KIB: ;
+    case RAM_NO_RAM: cart.ram = malloc(UInt8, 0);
+    case RAM_UNUSED: cart.ram = malloc(UInt8, 0);
+    case RAM_8KIB: cart.ram = malloc(UInt8, 8*1024);
+    case RAM_32KIB: cart.ram = malloc(UInt8, 32*1024);
+    case RAM_64KIB: cart.ram = malloc(UInt8, 64*1024);
+    case RAM_128KIB: cart.ram = malloc(UInt8, 128*1024);
     default:
       io::printfn("RAM size %02x not supported", cart.header.ram_size);
-      return;
+  }
+
+  io::File! save_file = io::file::open(cart.save_filename, "rb");
+  if (try save = save_file) {
+    save.read(cart.ram)!!;
+    save.close()!!;
   }
 }
 
