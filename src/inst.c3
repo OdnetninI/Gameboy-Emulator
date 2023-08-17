@@ -67,7 +67,7 @@ fn void adcRegReg(Cpu* cpu, Inst* inst, Reg _dest, Reg _src) {
   UInt8 carry = cpu.readFlag(C) ? 1 : 0;
   UInt8 value = dest + src + carry;
   cpu.writeReg(_dest, value);
-  cpu.setFlags(value == 0x00, false, ((dest & 0x0F) + (src & 0xF) + carry) > 0x0F, (value < dest) || (value < src));
+  cpu.setFlags(value == 0x00, false, ((dest & 0x0F) + (src & 0xF) + carry) > 0x0F, (value < (dest + carry)) || (value < (src + carry)));
 }
 
 fn void adcRegImm8(Cpu* cpu, Inst* inst, Reg _dest) {
@@ -176,7 +176,7 @@ fn void sbcRegReg(Cpu* cpu, Inst* inst, Reg _dest, Reg _src) {
   UInt8 src = cpu.readReg(_src);
   UInt8 value = dest - (src + carry);
   cpu.writeReg(_dest, value);
-  cpu.setFlags(value == 0x00, true, ((dest & 0x0F) < ((src + carry) & 0xF)) && (((src & 0xF) + carry) != 0x00), dest < (src + carry));
+  cpu.setFlags(value == 0x00, true, (Int8)((dest & 0xF) - (src & 0xF) - carry) <= 0, dest < (src + carry));
 }
 
 fn void sbcRegImm8(Cpu* cpu, Inst* inst, Reg _dest) {
@@ -185,7 +185,7 @@ fn void sbcRegImm8(Cpu* cpu, Inst* inst, Reg _dest) {
   UInt8 src = cpu.system.read(inst.pc + 1);
   UInt8 value = dest - (src + carry);
   cpu.writeReg(_dest, value);
-  cpu.setFlags(value == 0x00, true, ((dest & 0x0F) < ((src + carry) & 0xF)) && (((src & 0xF) + carry) != 0x00), dest < (src + carry));
+  cpu.setFlags(value == 0x00, true, (Int8)((dest & 0xF) - (src & 0xF) - carry) < 0, dest < (src + carry));
 }
 
 fn void setInterrupts(Cpu* cpu, Inst* inst, bool enabled) {

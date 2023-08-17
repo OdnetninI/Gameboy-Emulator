@@ -92,6 +92,11 @@ struct Cart {
 
 fn void Cart.init(Cart* cart, System* system) {
   cart.system = system;
+
+  // Initialize mappers
+  mappers::mcb1::init(cart);
+  mappers::mcb3::init(cart);
+  mappers::mcb5::init(cart);
 }
 
 fn void Cart.open(Cart* cart, String filename) {

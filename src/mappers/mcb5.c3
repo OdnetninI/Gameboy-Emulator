@@ -10,6 +10,13 @@ struct Mapper_MCB5 {
   UInt8 ram_bank;
 }
 
+fn void init(Cart* cart) {
+  cart.mcb5.enabled_ram = false;
+  cart.mcb5.low_bank = 0;
+  cart.mcb5.high_bank = 0;
+  cart.mcb5.ram_bank = 0;
+}
+
 fn UInt8 read(Cart* cart, UInt16 addr) {
   if (addr < 0x4000) return cart.cart[addr];
   UInt8 high_map = cart.mcb5.high_bank;

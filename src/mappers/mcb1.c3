@@ -10,7 +10,18 @@ struct Mapper_MCB1 {
   bool advanced_banking_mode;
 }
 
+import std::io;
+
+fn void init(Cart* cart) {
+  cart.mcb1.enabled_ram = false;
+  cart.mcb1.low_bank = 0;
+  cart.mcb1.high_bank = 0;
+  cart.mcb1.advanced_banking_mode = false;
+}
+
 fn UInt8 read(Cart* cart, UInt16 addr) {
+  //io::printfn("[MCB1] Wants to read %04x", addr);
+
   UInt8 high_map = cart.mcb1.high_bank;
     switch(cart.header.rom_size) {
       case cart::ROM_512_KIB:
@@ -27,8 +38,10 @@ fn UInt8 read(Cart* cart, UInt16 addr) {
     }
     else  {
       full_addr = (full_addr & 0x3fff) | (high_map << 19) | (cart.mcb1.low_bank << 14);
+      if (full_addr < 0x4000) full_addr += 0x4000;
     }
     //if (full_addr != addr) io::printfn("[Bank: %02x %02x]Accessing Banked %04x -> %06x", cart.high_bank, cart.low_bank, addr, full_addr);
+    //io::printfn("[MCB1] Reading %02x from %04x mapped to %04x", cart.cart[full_addr], addr, full_addr);
     return cart.cart[full_addr];
 }
 

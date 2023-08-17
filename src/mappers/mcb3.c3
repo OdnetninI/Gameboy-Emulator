@@ -10,6 +10,13 @@ struct Mapper_MCB3 {
   bool advanced_banking_mode;
 }
 
+fn void init(Cart* cart) {
+  cart.mcb3.enabled_ram = false;
+  cart.mcb3.low_bank = 0;
+  cart.mcb3.high_bank = 0;
+  cart.mcb3.advanced_banking_mode = false;
+}
+
 fn UInt8 read(Cart* cart, UInt16 addr) {
   UInt8 high_map = cart.mcb3.high_bank;
     switch(cart.header.rom_size) {

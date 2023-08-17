@@ -291,7 +291,6 @@ fn void Ppu.tick(Ppu* ppu, UInt64 tick) {
         UInt8 color = ppu.remapBGColor(0b00);
 
         if (ppu.regs.bg_window_show) {
-          //ppu.system.lcd.framebuffer[ppu.regs.ly][x] = ppu.system.lcd.framebuffer[ppu.regs.ly][x] == 0 ? 1 : 0;
           UInt8 xPos = x + sx;
           if (window) {
             xPos = x - wx;
