@@ -33,18 +33,18 @@ It is programmed using [Raylib](https://www.raylib.com/) to manage the window an
  - Pokemon Red US: Not loading after the initial scene 
 
 ## Screenshots
-<img src="imgs/blargg-cpu.png" width="166"/>
-<img src="imgs/blagg-times.png" width="166"/>
-<img src="imgs/blargg-int.png" width="166"/>
-<img src="imgs/mooneye.png" width="166"/>
-<img src="imgs/tetris.png" width="166"/>
-<img src="imgs/drmario.png" width="166"/>
-<img src="imgs/zelda.png" width="166"/>
-<img src="imgs/zelda-load.png" width="166"/>
-<img src="imgs/zelda-end.png" width="166"/>
-<img src="imgs/zeldadx.png" width="166"/>
-<img src="imgs/zeldadx-egg.png" width="166"/>
-<img src="imgs/pokeredjp.png" width="166"/>
-<img src="imgs/pokeredjp-game.png" width="166"/>
-<img src="imgs/pokeredjp-badges.png" width="166"/>
+<img src="imgs/blargg-cpu.png" width="332"/>
+<img src="imgs/blagg-times.png" width="332"/>
+<img src="imgs/blargg-int.png" width="332"/>
+<img src="imgs/mooneye.png" width="332"/>
+<img src="imgs/tetris.png" width="332"/>
+<img src="imgs/drmario.png" width="332"/>
+<img src="imgs/zelda.png" width="332"/>
+<img src="imgs/zelda-load.png" width="332"/>
+<img src="imgs/zelda-end.png" width="332"/>
+<img src="imgs/zeldadx.png" width="332"/>
+<img src="imgs/zeldadx-egg.png" width="332"/>
+<img src="imgs/pokeredjp.png" width="332"/>
+<img src="imgs/pokeredjp-game.png" width="332"/>
+<img src="imgs/pokeredjp-badges.png" width="332"/>
 
