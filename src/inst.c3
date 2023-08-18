@@ -40,6 +40,10 @@ fn void opcode_unimplemented(Cpu* cpu, Inst* inst) {
 
 fn void nop(Cpu* cpu, Inst* inst) { ; }
 
+fn void stop(Cpu* cpu, Inst* inst) {
+  cpu.halted = true;
+}
+
 // Generic methods
 fn void cmpRegImm(Cpu* cpu, Inst* inst, Reg _data) {
   UInt8 data = cpu.readReg(_data);
@@ -583,6 +587,7 @@ fn void init() {
   functions[0x0e] = fn (cpu, inst) => imm2Reg(cpu, inst, C);
   functions[0x0f] = fn (cpu, inst) => rotateRightNOZ(cpu, inst, A);
 
+  functions[0x10] = fn (cpu, inst) => stop(cpu, inst);
   functions[0x11] = fn (cpu, inst) => imm2Reg16(cpu, inst, DE);
   functions[0x12] = fn (cpu, inst) => reg2MemReg16(cpu, inst, A, DE);
   functions[0x13] = fn (cpu, inst) => incReg16(cpu, inst, DE);

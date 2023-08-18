@@ -10,6 +10,7 @@ import ppu;
 import lcd;
 import input;
 import cart;
+import serial;
 
 struct System {
   Cpu cpu;
@@ -17,6 +18,7 @@ struct System {
   Lcd lcd;
   Cart cart;
   Io io;
+  Serial serial;
 
   UInt8[0x100] bios;
   UInt8[0x2000] ram;
@@ -34,6 +36,7 @@ fn void System.init(System* system) {
   system.lcd.init();
   system.cart.init(system);
   system.io.init(system);
+  system.serial.init(system);
 
   system.bios_enabled = true;
 }
@@ -43,6 +46,7 @@ fn void System.tick(System* system) {
   system.cpu.tick(system.tick_counter);
   system.ppu.tick(system.tick_counter);
   system.io.tick(system.tick_counter);
+  system.serial.tick(system.tick_counter);
 
   system.sysclk++;
   system.tick_counter++;

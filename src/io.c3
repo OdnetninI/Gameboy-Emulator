@@ -49,6 +49,7 @@ fn void Io.tick(Io* io, UInt64 tick_counter) {
 
 fn UInt8 Io.read(Io* io, UInt16 addr) {
   switch(addr) {
+    case 0xff01..0xff02: return io.system.serial.read(addr);
     case 0xff04: return (UInt8)((io.system.sysclk >> 6) & 0xff);
     case 0xff05: return io.tima;
     case 0xff06: return io.tma;
@@ -60,6 +61,7 @@ fn UInt8 Io.read(Io* io, UInt16 addr) {
 
 fn void Io.write(Io* io, UInt16 addr, UInt8 value) {
   switch(addr) {
+    case 0xff01..0xff02: return io.system.serial.write(addr, value);
     case 0xff04: io.system.sysclk = 0;
     case 0xff05: io.tima = value;
     case 0xff06: io.tma = value;
