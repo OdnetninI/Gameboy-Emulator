@@ -180,7 +180,7 @@ fn void sbcRegReg(Cpu* cpu, Inst* inst, Reg _dest, Reg _src) {
   UInt8 src = cpu.readReg(_src);
   UInt8 value = dest - (src + carry);
   cpu.writeReg(_dest, value);
-  cpu.setFlags(value == 0x00, true, (Int8)((dest & 0xF) - (src & 0xF) - carry) <= 0, dest < (src + carry));
+  cpu.setFlags(value == 0x00, true, (Int8)((dest & 0xF) - (src & 0xF) - carry) < 0, dest < (src + carry));
 }
 
 fn void sbcRegImm8(Cpu* cpu, Inst* inst, Reg _dest) {
