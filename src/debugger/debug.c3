@@ -24,7 +24,7 @@ fn void processCMD(System* system) {
   raylib::poll_input_events(); // Hack, notify raylib that it has to update the keys
 
   io::printf("> ");
-  String cmd = io::stdin().as_stream().readline()!!;
+  String cmd = io::stdin().readline()!!;
   switch(cmd) {
     case "c": 
       debugging_enabled = false;
@@ -51,17 +51,17 @@ fn void processCMD(System* system) {
 
     case "r":
       io::printf("Which Address (XXXX): ");
-      String _addr = io::stdin().as_stream().readline()!!;
+      String _addr = io::stdin().readline()!!;
       UInt16 addr = (UInt16)libc::strtol(_addr, null, 16);
       UInt8 value = system.read(addr);
       io::printfn("%04x = %02x", addr, value);
 
     case "w":
       io::printf("Which Address (XXXX): ");
-      String _addr = io::stdin().as_stream().readline()!!;
+      String _addr = io::stdin().readline()!!;
       UInt16 addr = (UInt16)libc::strtol(_addr, null, 16);
       io::printf("Which Value (XX): ");
-      String _value = io::stdin().as_stream().readline()!!;
+      String _value = io::stdin().readline()!!;
       UInt8 value = (UInt8)libc::strtol(_addr, null, 16);
       system.write(addr, value);
   }

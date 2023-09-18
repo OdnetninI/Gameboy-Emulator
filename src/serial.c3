@@ -2,6 +2,7 @@ module serial;
 
 import std::io;
 import std::net;
+import std::net::tcp;
 
 import types;
 import system;
@@ -19,7 +20,7 @@ struct Serial {
 
   // Network
   bool disconected;
-  Listener listen;
+  TcpServerSocket listen;
   Socket peer;
   bool master;
   String port;
@@ -33,17 +34,17 @@ fn void Serial.init(Serial* serial, System* system) {
 
   if (!serial.disconected) {
     if (serial.master) {
-      serial.listen.init(TCP, "localhost", serial.port)!!;
-      serial.peer = serial.listen.accept()!!;
-      serial.peer.sock.set_non_blocking()!!;
+      serial.listen = tcp::listen("localhost", serial.port.to_uint(), 0)!!;
+      serial.peer = tcp::accept(&serial.listen)!!;
+      serial.peer.sock.set_non_blocking(true)!!;
       /*serial.peer.write("Hola Cliente\n")!!;
       UInt8[256] data;
       serial.peer.read(data[:256])!!;
       io::printfn("Client sent: %s", data);*/
     }
     else {
-      serial.peer = net::Network.TCP.connect("localhost", serial.port)!!;
-      serial.peer.sock.set_non_blocking()!!;
+      serial.peer = tcp::connect("localhost", serial.port.to_uint())!!;
+      serial.peer.sock.set_non_blocking(true)!!;
       /*UInt8[256] data;
       serial.peer.read(data[:256])!!;
       io::printfn("Server sent: %s", data);
