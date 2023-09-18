@@ -4,6 +4,8 @@ import types;
 import inst;
 import system;
 
+import debug;
+
 import std::io;
 
 enum Reg {
@@ -105,6 +107,9 @@ fn void Cpu.init(Cpu* cpu, System* system) {
 
   cpu.cpu_executed_inst = false;
   cpu.trace = false;
+
+  cpu.system.write(0xFF0F, 0x00);
+  cpu.system.write(0xFFFF, 0x00);
 /*
   cpu.regs.a = 0x01;
   cpu.regs.f = 0xB0;
@@ -133,6 +138,12 @@ fn void Cpu.tick(Cpu* cpu, UInt64 tick) {
     }
   }
   if (tick >= cpu.tick_counter && !cpu.halted) {
+    if (debug::breakpoint_enabled) {
+      if (debug::breakpoint == cpu.regs.pc) {
+        debug::debugging_enabled = true;
+      }
+    }
+
     if (cpu.trace) cpu.print();
     //cpu.print();
     //cpu.print2();

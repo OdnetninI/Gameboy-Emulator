@@ -76,6 +76,7 @@ fn void Serial.tick(Serial* serial, UInt64 tick_counter) {
       serial.peer.write("S")!!;
       UInt8[1] byte;
       byte[0] = serial.sb;
+      serial.sb = 0xff;
       serial.peer.write(byte[:1])!!;
       //io::printfn("Sending: %c", serial.sb);
       serial.transfer_start = false;
@@ -107,41 +108,4 @@ fn void Serial.tick(Serial* serial, UInt64 tick_counter) {
       }
     }
   }
-  /*if (serial.transfer_start && serial.internal_clock) {
-    UInt8 next_bit = (serial.sb >> 7) & 0x1;
-    if (serial.step == 0) {
-      io::printfn("Sent: %c", serial.sb);
-      if (!serial.disconected) {
-        UInt8[1] byte;
-        byte[0] = serial.sb;
-        serial.peer.write(byte[:1])!!;
-      }
-    }
-    //io::printfn("[SERIAL] Step %d -> Byte %02x (bit %x)", serial.step, serial.sb, next_bit);
-    serial.sb = serial.sb << 1;
-    serial.step++;
-    if (serial.step == 8) {
-      serial.step = 0;
-      serial.transfer_start = false;
-      UInt8 _if = serial.system.read(0xFF0F);
-      _if = _if | (1 << 3);
-      serial.system.write(0xFF0F, _if);
-    }
-  }
-  else {
-    if (!serial.disconected) {
-      UInt8[1] byte;
-      usz! bytes_read = serial.peer.read(byte[:1]);
-      if (try usz bytes = bytes_read) {
-        if (bytes > 0) {
-          serial.sb = byte[0];
-          serial.transfer_start = false;
-          io::printfn("Received: %c", serial.sb);
-          UInt8 _if = serial.system.read(0xFF0F);
-          _if = _if | (1 << 3);
-          serial.system.write(0xFF0F, _if);
-        }
-      }
-    }
-  }*/
 }

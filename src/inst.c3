@@ -41,7 +41,17 @@ fn void opcode_unimplemented(Cpu* cpu, Inst* inst) {
 fn void nop(Cpu* cpu, Inst* inst) { ; }
 
 fn void stop(Cpu* cpu, Inst* inst) {
+  io::printfn("Bizarre STOP instruction...");
+  // More info at https://gbdev.io/pandocs/imgs/gb_stop.png
+  // Let's do a simple version with halt but enabling the keys
+  cpu.system.write(0xFF00, 0x10);
   cpu.halted = true;
+  // Still a lot of work about glitches, DIV counter and Clock Speeds
+}
+
+fn void halt(Cpu* cpu, Inst* inst) {
+  cpu.halted = true;
+  //io::printfn("Starting a CPU halt...");
 }
 
 // Generic methods
@@ -695,7 +705,7 @@ fn void init() {
   functions[0x73] = fn (cpu, inst) => reg2Reg(cpu, inst, I_HL, E);
   functions[0x74] = fn (cpu, inst) => reg2Reg(cpu, inst, I_HL, H);
   functions[0x75] = fn (cpu, inst) => reg2Reg(cpu, inst, I_HL, L);
-  functions[0x76] = fn (cpu, inst) => reg2Reg(cpu, inst, I_HL, I_HL);
+  functions[0x76] = fn (cpu, inst) => halt(cpu, inst);
   functions[0x77] = fn (cpu, inst) => reg2Reg(cpu, inst, I_HL, A);
   functions[0x78] = fn (cpu, inst) => reg2Reg(cpu, inst, A, B);
   functions[0x79] = fn (cpu, inst) => reg2Reg(cpu, inst, A, C);

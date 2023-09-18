@@ -9,6 +9,9 @@ import system;
 
 bool debugging_enabled = false;
 
+UInt16 breakpoint = 0x0000;
+bool breakpoint_enabled = false;
+
 fn void checkForDebugTrigger() {
   if(raylib::is_key_pressed(raylib::keyboard::ESCAPE)) {
     io::printfn("Triggering debug (%s)", debugging_enabled);
@@ -43,6 +46,14 @@ fn void processCMD(System* system) {
 
     case "regs":
       system.cpu.print();
+
+    case "b":
+    case "break":
+      io::printf("Which Address (XXXX): ");
+      String _addr = io::stdin().readline()!!;
+      UInt16 addr = (UInt16)libc::strtol(_addr, null, 16);
+      breakpoint = addr;
+      breakpoint_enabled = true;
 
     case "t":
     case "trace":
