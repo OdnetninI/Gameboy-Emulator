@@ -65,7 +65,7 @@ fn void Lcd.redraw(Lcd* lcd) {
     //raylib::draw_texture(lcd.tex, 0, 0, raylib::RAYWHITE);
     raylib::draw_texture_pro(lcd.tex, 
       {0, 0, 160, 144}, 
-      {0, 0, 160 * zoom, 144 * zoom},
+      {0, 0, (float)(160 * zoom), (float)(144 * zoom)},
       {0, 0},
       0.0f, raylib::RAYWHITE);
   raylib::end_drawing();
