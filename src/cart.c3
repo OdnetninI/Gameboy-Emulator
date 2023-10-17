@@ -236,6 +236,24 @@ fn void Cart.ram_write(Cart* cart, UInt16 addr, UInt8 value) {
   cart.save();
 }
 
+fn UInt32 Cart.calculateAddr(Cart* cart, UInt16 addr) {
+  switch(cart.header.cartridge_type) {
+    case MAPPER_MCB3:
+    case MAPPER_MCB3_RAM:
+    case MAPPER_MCB3_RAM_BATTERY: 
+      return mappers::mcb3::calculateAddr(cart, addr);
+
+    case MAPPER_MCB5:
+    case MAPPER_MCB5_RAM:
+    case MAPPER_MCB5_RAM_BATTERY:
+    case MAPPER_MCB5_RUMBLE:
+    case MAPPER_MCB5_RUMBLE_RAM:
+    case MAPPER_MCB5_RUMBLE_RAM_BATTERY:
+      return mappers::mcb5::calculateAddr(cart, addr);
+  }
+  return addr;
+}
+
 fn void Cart.close(Cart* cart) {
   free(cart.cart);
 }

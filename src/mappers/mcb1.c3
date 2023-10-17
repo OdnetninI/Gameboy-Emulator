@@ -51,7 +51,7 @@ fn void write(Cart* cart, UInt16 addr, UInt8 value) {
       if ((value & 0x0A) != 0) { cart.mcb1.enabled_ram = true; }
       else { cart.mcb1.enabled_ram = false; }
     case 0x2000..0x3fff: 
-      cart.mcb1.low_bank = value & 0x1f;
+      cart.mcb1.low_bank = value;
     case 0x4000..0x5fff:
       cart.mcb1.high_bank = value & 0x03;
     case 0x6000..0x7fff:

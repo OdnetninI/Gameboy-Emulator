@@ -17,6 +17,21 @@ fn void init(Cart* cart) {
   cart.mcb5.ram_bank = 0;
 }
 
+fn UInt32 calculateAddr(Cart* cart, UInt16 addr) {
+  if (addr < 0x4000) return addr;
+  UInt8 high_map = cart.mcb5.high_bank;
+    switch(cart.header.rom_size) {
+      case cart::ROM_1_MB: high_map = 0x00;
+      case cart::ROM_2_MB: high_map &= 0x01;
+      case cart::ROM_4_MB: if (high_map > 0x10) high_map = 0x10;
+      case cart::ROM_8_MB: ;
+    }
+    UInt32 full_addr = addr;
+    full_addr = (full_addr & 0x3fff) | (high_map << 19) | (cart.mcb5.low_bank << 14);
+    //if (full_addr != addr) io::printfn("[Bank: %02x %02x]Accessing Banked %04x -> %06x", cart.high_bank, cart.low_bank, addr, full_addr);
+    return full_addr;
+}
+
 fn UInt8 read(Cart* cart, UInt16 addr) {
   if (addr < 0x4000) return cart.cart[addr];
   UInt8 high_map = cart.mcb5.high_bank;

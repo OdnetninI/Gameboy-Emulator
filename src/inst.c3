@@ -2,6 +2,7 @@ module inst;
 
 import types;
 import cpu;
+import system;
 
 import std::io;
 
@@ -1159,6 +1160,27 @@ UInt8[256] taken_latencies = {
 /* F */ 12,12, 8, 4, 0,16, 8,16,12, 8,16, 4, 0, 0, 8,16,
 };
 
+fn void print_inst(System* system, UInt16 pc) {
+  UInt8 inst = system.read(pc, true);
+  if (inst == 0xCB) {
+    inst = system.read(pc + 1, true);
+    io::printfn(mnemonics_CB[inst]);
+  }
+  else {
+    if (inst_size[inst] == 1) {
+      io::printfn(mnemonics[inst]);
+    }
+    else if (inst_size[inst] == 2) {
+      UInt8 data = system.read(pc + 1, true);
+      io::printfn(mnemonics[inst], data);
+    }
+    else if (inst_size[inst] == 3) {
+      UInt16 data = system.read16(pc + 1, true);
+      io::printfn(mnemonics[inst], data);
+    }
+  }
+}
+
 UInt8[256] inst_size = {
      /*  0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
 /* 0 */  1, 3, 1, 1, 1, 1, 2, 1, 3, 1, 1, 1, 1, 1, 2, 1,
@@ -1180,39 +1202,39 @@ UInt8[256] inst_size = {
 };
 
 String[256] mnemonics = {
-    "NOP","LD BC,d16","LD (BC),A","INC BC","INC B","DEC B","LD B,d8","RLCA","LD (a16),SP","ADD HL,BC","LD A,(BC)","DEC BC","INC C","DEC C","LD C,d8","RRCA",
-    "STOP 0","LD DE,d16","LD (DE),A","INC DE","INC D","DEC D","LD D,d8","RLA","JR r8","ADD HL,DE","LD A,(DE)","DEC DE","INC E","DEC E","LD E,d8","RRA ",
-    "JR NZ,r8","LD HL,d16","LD (HL+),A","INC HL","INC H","DEC H","LD H,d8","DAA","JR Z,r8","ADD HL,HL","LD A,(HL+)","DEC HL","INC L","DEC L","LD L,d8","CPL",
-    "JR NC,r8","LD SP,d16","LD (HL-),A","INC SP","INC (HL)","DEC (HL)","LD (HL),d8","SCF","JR C,r8","ADD HL,SP","LD A,(HL-)","DEC SP","INC A","DEC A","LD A,d8","CCF",
-    "LD B,B","LD B,C","LD B,D","LD B,E","LD B,H","LD B,L","LD B,(HL)","LD B,A","LD C,B","LD C,C","LD C,D","LD C,E","LD C,H","LD C,L","LD C,(HL)","LD C,A",
-    "LD D,B","LD D,C","LD D,D","LD D,E","LD D,H","LD D,L","LD D,(HL)","LD D,A","LD E,B","LD E,C","LD E,D","LD E,E","LD E,H","LD E,L","LD E,(HL)","LD E,A",
-    "LD H,B","LD H,C","LD H,D","LD H,E","LD H,H","LD H,L","LD H,(HL)","LD H,A","LD L,B","LD L,C","LD L,D","LD L,E","LD L,H","LD L,L","LD L,(HL)","LD L,A",
-    "LD (HL),B","LD (HL),C","LD (HL),D","LD (HL),E","LD (HL),H","LD (HL),L","HALT","LD (HL),A","LD A,B","LD A,C","LD A,D","LD A,E","LD A,H","LD A,L","LD A,(HL)","LD A,A",
-    "ADD A,B","ADD A,C","ADD A,D","ADD A,E","ADD A,H","ADD A,L","ADD A,(HL)","ADD A,A","ADC A,B","ADC A,C","ADC A,D","ADC A,E","ADC A,H","ADC A,L","ADC A,(HL)","ADC A,A",
-    "SUB B","SUB C","SUB D","SUB E","SUB H","SUB L","SUB (HL)","SUB A","SBC A,B","SBC A,C","SBC A,D","SBC A,E","SBC A,H","SBC A,L","SBC A,(HL)","SBC A,A",
-    "AND B","AND C","AND D","AND E","AND H","AND L","AND (HL)","AND A","XOR B","XOR C","XOR D","XOR E","XOR H","XOR L","XOR (HL)","XOR A",
-    "OR B","OR C","OR D","OR E","OR H","OR L","OR (HL)","OR A","CP B","CP C","CP D","CP E","CP H","CP L","CP (HL)","CP A",
-    "RET NZ","POP BC","JP NZ,a16","JP a16","CALL NZ,a16","PUSH BC","ADD A,d8","RST 00H","RET Z","RET","JP Z,a16","PREFIX CB","CALL Z,a16","CALL a16","ADC A,d8","RST 08H",
-    "RET NC","POP DE","JP NC,a16","UD","CALL NC,a16","PUSH DE","SUB d8","RST 10H","RET C","RETI","JP C,a16","UD","CALL C,a16","UD","SBC A,d8","RST 18H",
-    "LDH (a8),A","POP HL","LDH (C),A","UD","UD","PUSH HL","AND d8","RST 20H","ADD SP,r8","JP (HL)","LD (a16),A","UD","UD","UD","XOR d8","RST 28H",
-    "LDH A,(a8)","POP AF","LDH A,(C)","DI","UD","PUSH AF","OR d8","RST 30H","LD HL,SP+r8","LD SP,HL","LD A,(a16)","EI","UD","UD","CP d8","RST 38H",
+    "nop","ld bc, %04x","ld (bc), a","inc bc","inc b","dec b","ld b, %04x","rlca","ld (%04x), sp","add hl, bc","ld a, (bc)","dec bc","inc c","dec c","ld c, %04x","rrca",
+    "stop 0","ld de, %04x","ld (de), a","inc de","inc d","dec d","ld d, %04x","rla","jr %04x","add hl, de","ld a, (de)","dec de","inc e","dec e","ld e, %04x","rra ",
+    "jr nz, %04x","ld hl, %04x","ld (hl+), a","inc hl","inc h","dec h","ld h, %04x","daa","jr z, %04x","add hl, hl","ld a, (hl+)","dec hl","inc l","dec l","ld l, %04x","cpl",
+    "jr nc, %04x","ld sp, %04x","ld (hl-), a","inc sp","inc (hl)","dec (hl)","ld (hl),%04x","scf","jr c, %04x","add hl, sp","ld a, (hl-)","dec sp","inc a","dec a","ld a, %04x","ccf",
+    "ld b, b","ld b, c","ld b, d","ld b, e","ld b, h","ld b, l","ld b, (hl)","ld b, a","ld c, b","ld c, c","ld c, d","ld c, e","ld c, h","ld c, l","ld c, (hl)","ld c, a",
+    "ld d, b","ld d, c","ld d, d","ld d, e","ld d, h","ld d, l","ld d, (hl)","ld d, a","ld e, b","ld e, c","ld e, d","ld e, e","ld e, h","ld e, l","ld e, (hl)","ld e, a",
+    "ld h, b","ld h, c","ld h, d","ld h, e","ld h, h","ld h, l","ld h, (hl)","ld h, a","ld l, b","ld l, c","ld l, d","ld l, e","ld l, h","ld l, l","ld l, (hl)","ld l, a",
+    "ld (hl), b","ld (hl), c","ld (hl),d","ld (hl),e","ld (hl),h","ld (hl),l","halt","ld (hl),a","ld a,b","ld a,c","ld a,d","ld a,e","ld a,h","ld a,l","ld a,(hl)","ld a,a",
+    "add a, b","add a, c","add a, d","add a, e","add a, h","add a, l","add a, (hl)","add a, a","adc a, b","adc a, c","adc a, d","adc a, e","adc a, h","adc a, l","adc a, (hl)","adc a, a",
+    "sub b","sub c","sub d","sub e","sub h","sub l","sub (hl)","sub a","sbc a, b","sbc a, c","sbc a, d","sbc a, e","sbc a, h","sbc a, l","sbc a, (hl)","sbc a, a",
+    "and b","and c","and d","and e","and h","and l","and (hl)","and a","xor b","xor c","xor d","xor e","xor h","xor l","xor (hl)","xor a",
+    "or b","or c","or d","or e","or h","or l","or (hl)","or a","cp b","cp c","cp d","cp e","cp h","cp l","cp (hl)","cp a",
+    "ret nz","pop bc","jp nz, %04x","jp %04x","call nz, %04x","push bc","add a,%04x","rst 00h","ret z","ret","jp z, %04x","prefix cb","call z,%04x","call %04x","adc a,%04x","rst 08h",
+    "ret nc","pop de","jp nc, %04x","ud","call nc, %04x","push de","sub %04x","rst 10h","ret c","reti","jp c, %04x","ud","call c, %04x","ud","sbc a, %04x","rst 18h",
+    "ld (ff00+%04x), a","pop hl","ld (ff00+c), a","ud","ud","push hl","and %04x","rst 20h","add sp, %04x","jp (hl)","ld (%04x), a","ud","ud","ud","xor %04x","rst 28h",
+    "ld a,(ff00+%04x)","pop af","ld a,(ff00+c)","di","ud","push af","or %04x","rst 30h","ld hl, sp+%04x","ld sp,hl","ld a, (%04x)","ei","ud","ud","cp %04x","rst 38h",
 };
 
 String[256] mnemonics_CB = {
-    "RLC B","RLC C","RLC D","RLC E","RLC H","RLC L","RLC (HL)","RLC A","RRC B","RRC C","RRC D","RRC E","RRC H","RRC L","RRC (HL)","RRC A",
-    "RL B","RL C","RL D","RL E","RL H","RL L","RL (HL)","RL A","RR B","RR C","RR D","RR E","RR H","RR L","RR (HL)","RR A",
-    "SLA B","SLA C","SLA D","SLA E","SLA H","SLA L","SLA (HL)","SLA A","SRA B","SRA C","SRA D","SRA E","SRA H","SRA L","SRA (HL)","SRA A",
-    "SWAP B","SWAP C","SWAP D","SWAP E","SWAP H","SWAP L","SWAP (HL)","SWAP A","SRL B","SRL C","SRL D","SRL E","SRL H","SRL L","SRL (HL)","SRL A",
-    "BIT 0,B","BIT 0,C","BIT 0,D","BIT 0,E","BIT 0,H","BIT 0,L","BIT 0,(HL)","BIT 0,A","BIT 1,B","BIT 1,C","BIT 1,D","BIT 1,E","BIT 1,H","BIT 1,L","BIT 1,(HL)","BIT 1,A",
-    "BIT 2,B","BIT 2,C","BIT 2,D","BIT 2,E","BIT 2,H","BIT 2,L","BIT 2,(HL)","BIT 2,A","BIT 3,B","BIT 3,C","BIT 3,D","BIT 3,E","BIT 3,H","BIT 3,L","BIT 3,(HL)","BIT 3,A",
-    "BIT 4,B","BIT 4,C","BIT 4,D","BIT 4,E","BIT 4,H","BIT 4,L","BIT 4,(HL)","BIT 4,A","BIT 5,B","BIT 5,C","BIT 5,D","BIT 5,E","BIT 5,H","BIT 5,L","BIT 5,(HL)","BIT 5,A",
-    "BIT 6,B","BIT 6,C","BIT 6,D","BIT 6,E","BIT 6,H","BIT 6,L","BIT 6,(HL)","BIT 6,A","BIT 7,B","BIT 7,C","BIT 7,D","BIT 7,E","BIT 7,H","BIT 7,L","BIT 7,(HL)","BIT 7,A",
-    "RES 0,B","RES 0,C","RES 0,D","RES 0,E","RES 0,H","RES 0,L","RES 0,(HL)","RES 0,A","RES 1,B","RES 1,C","RES 1,D","RES 1,E","RES 1,H","RES 1,L","RES 1,(HL)","RES 1,A",
-    "RES 2,B","RES 2,C","RES 2,D","RES 2,E","RES 2,H","RES 2,L","RES 2,(HL)","RES 2,A","RES 3,B","RES 3,C","RES 3,D","RES 3,E","RES 3,H","RES 3,L","RES 3,(HL)","RES 3,A",
-    "RES 4,B","RES 4,C","RES 4,D","RES 4,E","RES 4,H","RES 4,L","RES 4,(HL)","RES 4,A","RES 5,B","RES 5,C","RES 5,D","RES 5,E","RES 5,H","RES 5,L","RES 5,(HL)","RES 5,A",
-    "RES 6,B","RES 6,C","RES 6,D","RES 6,E","RES 6,H","RES 6,L","RES 6,(HL)","RES 6,A","RES 7,B","RES 7,C","RES 7,D","RES 7,E","RES 7,H","RES 7,L","RES 7,(HL)","RES 7,A",
-    "SET 0,B","SET 0,C","SET 0,D","SET 0,E","SET 0,H","SET 0,L","SET 0,(HL)","SET 0,A","SET 1,B","SET 1,C","SET 1,D","SET 1,E","SET 1,H","SET 1,L","SET 1,(HL)","SET 1,A",
-    "SET 2,B","SET 2,C","SET 2,D","SET 2,E","SET 2,H","SET 2,L","SET 2,(HL)","SET 2,A","SET 3,B","SET 3,C","SET 3,D","SET 3,E","SET 3,H","SET 3,L","SET 3,(HL)","SET 3,A",
-    "SET 4,B","SET 4,C","SET 4,D","SET 4,E","SET 4,H","SET 4,L","SET 4,(HL)","SET 4,A","SET 5,B","SET 5,C","SET 5,D","SET 5,E","SET 5,H","SET 5,L","SET 5,(HL)","SET 5,A",
-    "SET 6,B","SET 6,C","SET 6,D","SET 6,E","SET 6,H","SET 6,L","SET 6,(HL)","SET 6,A","SET 7,B","SET 7,C","SET 7,D","SET 7,E","SET 7,H","SET 7,L","SET 7,(HL)","SET 7,A"
+    "rlc b","rlc c","rlc d","rlc e","rlc h","rlc l","rlc (hl)","rlc a","rrc b","rrc c","rrc d","rrc e","rrc h","rrc l","rrc (hl)","rrc a",
+    "rl b","rl c","rl d","rl e","rl h","rl l","rl (hl)","rl a","rr b","rr c","rr d","rr e","rr h","rr l","rr (hl)","rr a",
+    "sla b","sla c","sla d","sla e","sla h","sla l","sla (hl)","sla a","sra b","sra c","sra d","sra e","sra h","sra l","sra (hl)","sra a",
+    "swap b","swap c","swap d","swap e","swap h","swap l","swap (hl)","swap a","srl b","srl c","srl d","srl e","srl h","srl l","srl (hl)","srl a",
+    "bit 0, b","bit 0, c","bit 0, d","bit 0, e","bit 0, h","bit 0, l","bit 0, (hl)","bit 0, a","bit 1, b","bit 1, c","bit 1, d","bit 1, e","bit 1, h","bit 1, l","bit 1, (hl)","bit 1, a",
+    "bit 2, b","bit 2, c","bit 2, d","bit 2, e","bit 2, h","bit 2, l","bit 2, (hl)","bit 2, a","bit 3, b","bit 3, c","bit 3, d","bit 3, e","bit 3, h","bit 3, l","bit 3, (hl)","bit 3, a",
+    "bit 4, b","bit 4, c","bit 4, d","bit 4, e","bit 4, h","bit 4, l","bit 4, (hl)","bit 4, a","bit 5, b","bit 5, c","bit 5, d","bit 5, e","bit 5, h","bit 5, l","bit 5, (hl)","bit 5, a",
+    "bit 6, b","bit 6, c","bit 6, d","bit 6, e","bit 6, h","bit 6, l","bit 6, (hl)","bit 6, a","bit 7, b","bit 7, c","bit 7, d","bit 7, e","bit 7, h","bit 7, l","bit 7, (hl)","bit 7, a",
+    "res 0, b","res 0, c","res 0, d","res 0, e","res 0, h","res 0, l","res 0, (hl)","res 0, a","res 1, b","res 1, c","res 1, d","res 1, e","res 1, h","res 1, l","res 1, (hl)","res 1, a",
+    "res 2, b","res 2, c","res 2, d","res 2, e","res 2, h","res 2, l","res 2, (hl)","res 2, a","res 3, b","res 3, c","res 3, d","res 3, e","res 3, h","res 3, l","res 3, (hl)","res 3, a",
+    "res 4, b","res 4, c","res 4, d","res 4, e","res 4, h","res 4, l","res 4, (hl)","res 4, a","res 5, b","res 5, c","res 5, d","res 5, e","res 5, h","res 5, l","res 5, (hl)","res 5, a",
+    "res 6, b","res 6, c","res 6, d","res 6, e","res 6, h","res 6, l","res 6, (hl)","res 6, a","res 7, b","res 7, c","res 7, d","res 7, e","res 7, h","res 7, l","res 7, (hl)","res 7, a",
+    "set 0, b","set 0, c","set 0, d","set 0, e","set 0, h","set 0, l","set 0, (hl)","set 0, a","set 1, b","set 1, c","set 1, d","set 1, e","set 1, h","set 1, l","set 1, (hl)","set 1, a",
+    "set 2, b","set 2, c","set 2, d","set 2, e","set 2, h","set 2, l","set 2, (hl)","set 2, a","set 3, b","set 3, c","set 3, d","set 3, e","set 3, h","set 3, l","set 3, (hl)","set 3, a",
+    "set 4, b","set 4, c","set 4, d","set 4, e","set 4, h","set 4, l","set 4, (hl)","set 4, a","set 5, b","set 5, c","set 5, d","set 5, e","set 5, h","set 5, l","set 5, (hl)","set 5, a",
+    "set 6, b","set 6, c","set 6, d","set 6, e","set 6, h","set 6, l","set 6, (hl)","set 6, a","set 7, b","set 7, c","set 7, d","set 7, e","set 7, h","set 7, l","set 7, (hl)","set 7, a"
 };

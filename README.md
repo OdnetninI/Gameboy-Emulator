@@ -45,6 +45,7 @@ It is programmed using [Raylib](https://www.raylib.com/) to manage the window an
 <img src="imgs/zeldadx.png" width="332"/>
 <img src="imgs/zeldadx-egg.png" width="332"/>
 <img src="imgs/pokeredjp.png" width="332"/>
+<img src="imgs/pokered-battle.png" width="332"/>
 <img src="imgs/pokeredjp-game.png" width="332"/>
 <img src="imgs/pokeredjp-badges.png" width="332"/>
 

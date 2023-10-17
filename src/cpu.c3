@@ -138,11 +138,7 @@ fn void Cpu.tick(Cpu* cpu, UInt64 tick) {
     }
   }
   if (tick >= cpu.tick_counter && !cpu.halted) {
-    if (debug::breakpoint_enabled) {
-      if (debug::breakpoint == cpu.regs.pc) {
-        debug::debugging_enabled = true;
-      }
-    }
+    debug::checkForBreakpoints(cpu.system, EXEC, cpu.regs.pc);
 
     if (cpu.trace) cpu.print();
     //cpu.print();
@@ -239,8 +235,7 @@ fn inst::Inst Cpu.fetch(Cpu* cpu) {
 
 fn void Cpu.exec(Cpu* cpu, inst::Inst inst) {
   UInt16 pc = cpu.readReg16(PC);
-  if (cpu.trace) io::printfn("Executing %s", inst.mnemonic)!!;
-  //io::printfn("Executing %s", inst.mnemonic)!!;
+  if (cpu.trace) inst::print_inst(cpu.system, pc);
   inst.exec(cpu, &inst);
 
   // Apply latency and increase PC if it was not already updated
@@ -360,4 +355,10 @@ fn void Cpu.print2(Cpu* cpu) {
   io::printfn("A:%02X F:%02X B:%02X C:%02X D:%02X E:%02X H:%02X L:%02X SP:%04X PC:%04X PCMEM:%02X,%02X,%02X,%02X",
               cpu.regs.a, cpu.regs.f, cpu.regs.b, cpu.regs.c, cpu.regs.d, cpu.regs.e, cpu.regs.h, cpu.regs.l, cpu.regs.sp, cpu.regs.pc,
               cpu.system.read(cpu.regs.pc),cpu.system.read(cpu.regs.pc+1),cpu.system.read(cpu.regs.pc+2),cpu.system.read(cpu.regs.pc+3));
+}
+fn void Cpu.print3(Cpu* cpu) {
+  io::printfn("[%08x:%04x] af:%04x bc:%04x de:%04x hl:%04x sp:%04x\n[Z:%s N:%s H:%s C:%s IME:%s Halted:%s]",
+              cpu.system.cart.calculateAddr(cpu.regs.pc),
+              cpu.regs.pc, cpu.regs.af, cpu.regs.bc, cpu.regs.de, cpu.regs.hl, cpu.regs.sp,
+              cpu.regs.zero, cpu.regs.neg, cpu.regs.half, cpu.regs.carry, cpu.ime, cpu.halted);
 }
