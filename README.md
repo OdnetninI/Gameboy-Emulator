@@ -30,7 +30,6 @@ It is programmed using [Raylib](https://www.raylib.com/) to manage the window an
 ## Known Bugs
  - Pokemon Red JP: Up key not working
  - Pokemon Red JP: Saving does not work
- - Pokemon Red US: Not loading after the initial scene 
 
 ## Screenshots
 <img src="imgs/blargg-cpu.png" width="332"/>
