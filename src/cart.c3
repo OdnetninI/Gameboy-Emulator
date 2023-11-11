@@ -106,7 +106,7 @@ fn void Cart.open(Cart* cart, String filename) {
   io::File! game_file = io::file::open(filename, "rb");
   usz size = game_file.seek(0, END)!!;
   io::printfn("Cart size: %d", size);
-  cart.cart = malloc(UInt8, size);
+  cart.cart = mem::new_array(UInt8, size);
   game_file.seek(0, SET)!!;
   game_file.read(cart.cart)!!;
   game_file.close()!!;
@@ -292,12 +292,12 @@ fn void Cart.load(Cart* cart) {
   }*/
 
   switch(cart.header.ram_size) {
-    case RAM_NO_RAM: cart.ram = malloc(UInt8, 0);
-    case RAM_UNUSED: cart.ram = malloc(UInt8, 0);
-    case RAM_8KIB: cart.ram = malloc(UInt8, 8*1024);
-    case RAM_32KIB: cart.ram = malloc(UInt8, 32*1024);
-    case RAM_64KIB: cart.ram = malloc(UInt8, 64*1024);
-    case RAM_128KIB: cart.ram = malloc(UInt8, 128*1024);
+    case RAM_NO_RAM: cart.ram = mem::new_array(UInt8, 0);
+    case RAM_UNUSED: cart.ram = mem::new_array(UInt8, 0);
+    case RAM_8KIB: cart.ram = mem::new_array(UInt8, 8*1024);
+    case RAM_32KIB: cart.ram = mem::new_array(UInt8, 32*1024);
+    case RAM_64KIB: cart.ram = mem::new_array(UInt8, 64*1024);
+    case RAM_128KIB: cart.ram = mem::new_array(UInt8, 128*1024);
     default:
       io::printfn("RAM size %02x not supported", cart.header.ram_size);
   }
