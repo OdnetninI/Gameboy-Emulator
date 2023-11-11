@@ -3,6 +3,7 @@ module cart;
 import types;
 import system;
 
+import mappers;
 import mappers::nomapper;
 import mappers::mcb1;
 import mappers::mcb3;
@@ -83,20 +84,11 @@ struct Cart {
   UInt8[] cart;
   UInt8[] ram;
   System* system;
-
-  // Mappers Data
-  Mapper_MCB1 mcb1;
-  Mapper_MCB3 mcb3;
-  Mapper_MCB5 mcb5;
+  Mapper* mapper;
 }
 
 fn void Cart.init(Cart* cart, System* system) {
   cart.system = system;
-
-  // Initialize mappers
-  mappers::mcb1::init(cart);
-  mappers::mcb3::init(cart);
-  mappers::mcb5::init(cart);
 }
 
 fn void Cart.open(Cart* cart, String filename) {
@@ -125,133 +117,24 @@ fn void Cart.open(Cart* cart, String filename) {
 }
 
 fn UInt8 Cart.read(Cart* cart, UInt16 addr) {
-  switch(cart.header.cartridge_type) {
-    case MAPPER_ROM: 
-    case MAPPER_ROM_RAM:
-    case MAPPER_ROM_RAM_BATTERY:
-      return mappers::nomapper::read(cart, addr);
-
-    case MAPPER_MCB1:
-    case MAPPER_MCB1_RAM:
-    case MAPPER_MCB1_RAM_BATTERY:
-      return mappers::mcb1::read(cart, addr);
-
-    case MAPPER_MCB3:
-    case MAPPER_MCB3_RAM:
-    case MAPPER_MCB3_RAM_BATTERY: 
-      return mappers::mcb3::read(cart, addr);
-
-    case MAPPER_MCB5:
-    case MAPPER_MCB5_RAM:
-    case MAPPER_MCB5_RAM_BATTERY:
-    case MAPPER_MCB5_RUMBLE:
-    case MAPPER_MCB5_RUMBLE_RAM:
-    case MAPPER_MCB5_RUMBLE_RAM_BATTERY:
-      return mappers::mcb5::read(cart, addr);
-    
-  }
-  return 0xff;
+  return cart.mapper.read(cart, addr);
 }
 
 fn void Cart.write(Cart* cart, UInt16 addr, UInt8 value) {
-  switch(cart.header.cartridge_type) {
-    case MAPPER_ROM: 
-    case MAPPER_ROM_RAM:
-    case MAPPER_ROM_RAM_BATTERY:
-      mappers::nomapper::write(cart, addr, value);
-
-    case MAPPER_MCB1:
-    case MAPPER_MCB1_RAM:
-    case MAPPER_MCB1_RAM_BATTERY:
-      mappers::mcb1::write(cart, addr, value);
-
-    case MAPPER_MCB3:
-    case MAPPER_MCB3_RAM:
-    case MAPPER_MCB3_RAM_BATTERY: 
-      mappers::mcb3::write(cart, addr, value);
-
-    case MAPPER_MCB5:
-    case MAPPER_MCB5_RAM:
-    case MAPPER_MCB5_RAM_BATTERY:
-    case MAPPER_MCB5_RUMBLE:
-    case MAPPER_MCB5_RUMBLE_RAM:
-    case MAPPER_MCB5_RUMBLE_RAM_BATTERY:
-      mappers::mcb5::write(cart, addr, value);
-  }
+  cart.mapper.write(cart, addr, value);
 }
 
 fn UInt8 Cart.ram_read(Cart* cart, UInt16 addr) {
-  switch(cart.header.cartridge_type) {
-    case MAPPER_ROM: 
-    case MAPPER_ROM_RAM:
-    case MAPPER_ROM_RAM_BATTERY:
-      return mappers::nomapper::ram_read(cart, addr);
-
-    case MAPPER_MCB1:
-    case MAPPER_MCB1_RAM:
-    case MAPPER_MCB1_RAM_BATTERY:
-      return mappers::mcb1::ram_read(cart, addr);
-
-    case MAPPER_MCB3:
-    case MAPPER_MCB3_RAM:
-    case MAPPER_MCB3_RAM_BATTERY: 
-      return mappers::mcb3::ram_read(cart, addr);
-
-    case MAPPER_MCB5:
-    case MAPPER_MCB5_RAM:
-    case MAPPER_MCB5_RAM_BATTERY:
-    case MAPPER_MCB5_RUMBLE:
-    case MAPPER_MCB5_RUMBLE_RAM:
-    case MAPPER_MCB5_RUMBLE_RAM_BATTERY:
-      return mappers::mcb5::ram_read(cart, addr);
-  }
-  return 0xff;
+  return cart.mapper.ram_read(cart, addr);
 }
 
 fn void Cart.ram_write(Cart* cart, UInt16 addr, UInt8 value) {
-  switch(cart.header.cartridge_type) {
-    case MAPPER_ROM: 
-    case MAPPER_ROM_RAM:
-    case MAPPER_ROM_RAM_BATTERY:
-      mappers::nomapper::ram_write(cart, addr, value);
-
-    case MAPPER_MCB1:
-    case MAPPER_MCB1_RAM:
-    case MAPPER_MCB1_RAM_BATTERY:
-      mappers::mcb1::ram_write(cart, addr, value);
-
-    case MAPPER_MCB3:
-    case MAPPER_MCB3_RAM:
-    case MAPPER_MCB3_RAM_BATTERY: 
-      mappers::mcb3::ram_write(cart, addr, value);
-
-    case MAPPER_MCB5:
-    case MAPPER_MCB5_RAM:
-    case MAPPER_MCB5_RAM_BATTERY:
-    case MAPPER_MCB5_RUMBLE:
-    case MAPPER_MCB5_RUMBLE_RAM:
-    case MAPPER_MCB5_RUMBLE_RAM_BATTERY:
-      mappers::mcb5::ram_write(cart, addr, value);
-  }
+  cart.mapper.ram_write(cart, addr, value);
   cart.save();
 }
 
 fn UInt32 Cart.calculateAddr(Cart* cart, UInt16 addr) {
-  switch(cart.header.cartridge_type) {
-    case MAPPER_MCB3:
-    case MAPPER_MCB3_RAM:
-    case MAPPER_MCB3_RAM_BATTERY: 
-      return mappers::mcb3::calculateAddr(cart, addr);
-
-    case MAPPER_MCB5:
-    case MAPPER_MCB5_RAM:
-    case MAPPER_MCB5_RAM_BATTERY:
-    case MAPPER_MCB5_RUMBLE:
-    case MAPPER_MCB5_RUMBLE_RAM:
-    case MAPPER_MCB5_RUMBLE_RAM_BATTERY:
-      return mappers::mcb5::calculateAddr(cart, addr);
-  }
-  return addr;
+  return cart.mapper.calculateAddr(cart, addr);
 }
 
 fn void Cart.close(Cart* cart) {
@@ -266,30 +149,20 @@ fn void Cart.save(Cart* cart) {
 }
 
 fn void Cart.load(Cart* cart) {
-  /*switch(cart.header.cartridge_type) {
-    case MAPPER_ROM: ;
-    case MAPPER_MCB3_RAM_BATTERY: ;
-    default: 
-      io::printfn("Mapper type %02x not supported", cart.header.cartridge_type);
-      cart.header.cartridge_type = MAPPER_MCB3_RAM_BATTERY; //MAPPER_NO_ROM; 
+  switch(cart.header.cartridge_type) {
+    case MAPPER_ROM: 
+    case MAPPER_ROM_RAM:
+    case MAPPER_ROM_RAM_BATTERY:
+      cart.mapper = mem::new(NoMapper);
+    case MAPPER_MCB1..MAPPER_MCB1_RAM_BATTERY: 
+      cart.mapper = mem::new(Mapper_MCB1);
+    case MAPPER_MCB3_TIMER_BATTERY..MAPPER_MCB3_RAM_BATTERY: 
+      cart.mapper = mem::new(Mapper_MCB3);
+    case MAPPER_MCB5..MAPPER_MCB5_RUMBLE_RAM_BATTERY: 
+      cart.mapper = mem::new(Mapper_MCB5);
   }
 
-  switch(cart.header.rom_size) {
-    case ROM_32_KIB: ;
-    case ROM_64_KIB: ;
-    case ROM_128_KIB: ;
-    case ROM_256_KIB: ;
-    case ROM_512_KIB: ;
-    case ROM_1_MB: ;
-    case ROM_2_MB: ;
-    case ROM_4_MB: ;
-    case ROM_8_MB: ;
-    case ROM_1_1_MB: ;
-    case ROM_1_2_MB: ;
-    case ROM_1_5_MB: ;
-    default:
-      io::printfn("ROM size %02x not supported", cart.header.rom_size);
-  }*/
+  cart.mapper.init();
 
   switch(cart.header.ram_size) {
     case RAM_NO_RAM: cart.ram = mem::new_array(UInt8, 0);

@@ -188,12 +188,6 @@ fn void processCMD(System* system) {
       case "unfreeze":
         frozen = false;
 
-      case "bank":
-        io::printf("Which Bank (XX): ");
-        String _bank = io::readline()!!;
-        UInt8 bank = (UInt8)libc::strtol(_bank, null, 16);
-        system.cart.mcb3.bank = bank;
-
       case "j":
         io::printf("Which Address (XXXX): ");
         String _addr = io::readline()!!;
