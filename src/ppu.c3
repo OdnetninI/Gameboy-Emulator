@@ -20,11 +20,11 @@ struct PpuRegs {
   }
   bitstruct : UInt8 @overlap {
     UInt8 stat : 0..7;
-    bool lyc_ly_coincidence : 6;
+    bool lyc_lcdcly_coincidence : 6;
     bool mode_10 : 5;
     bool mode_01 : 4;
     bool mode_00 : 3;
-    bool lyc_lcdcly_coincidence : 2;
+    bool lyc_ly_coincidence : 2;
     UInt8 mode_flag : 0..1;
   }
   UInt8 scy;
@@ -58,6 +58,7 @@ struct PpuRegs {
 }
 
 struct Oam {
+  UInt8 id;
   UInt8 y;
   UInt8 x;
   UInt8 tile;
@@ -90,23 +91,23 @@ enum Mode {
   DRAWING, /* Variable */
 }
 
-fn UInt8 Ppu.read(Ppu* ppu, UInt16 addr) {
+fn UInt8 Ppu.read(&ppu, UInt16 addr) {
   return ppu.vram[addr];
 }
 
-fn void Ppu.write(Ppu* ppu, UInt16 addr, UInt8 value) {
+fn void Ppu.write(&ppu, UInt16 addr, UInt8 value) {
   ppu.vram[addr] = value;
 }
 
-fn UInt8 Ppu.oam_read(Ppu* ppu, UInt16 addr) {
+fn UInt8 Ppu.oam_read(&ppu, UInt16 addr) {
   return ppu.oam[addr];
 }
 
-fn void Ppu.oam_write(Ppu* ppu, UInt16 addr, UInt8 value) {
+fn void Ppu.oam_write(&ppu, UInt16 addr, UInt8 value) {
   ppu.oam[addr] = value;
 }
 
-fn UInt8 Ppu.read_io(Ppu* ppu, UInt16 addr) {
+fn UInt8 Ppu.read_io(&ppu, UInt16 addr) {
   switch (addr) {
     case 0xFF40: return ppu.regs.lcdc;
     case 0xFF41: return ppu.regs.stat;
@@ -126,7 +127,7 @@ fn UInt8 Ppu.read_io(Ppu* ppu, UInt16 addr) {
   }
 }
 
-fn void Ppu.write_io(Ppu* ppu, UInt16 addr, UInt8 value) {
+fn void Ppu.write_io(&ppu, UInt16 addr, UInt8 value) {
   switch (addr) {
     case 0xFF40: ppu.regs.lcdc = value;
     case 0xFF41: ppu.regs.stat = value;
@@ -152,7 +153,7 @@ fn void Ppu.write_io(Ppu* ppu, UInt16 addr, UInt8 value) {
   }
 }
 
-fn void Ppu.init(Ppu* ppu, System* system) {
+fn void Ppu.init(&ppu, System* system) {
   ppu.system = system;
   ppu.regs.lcdc = 0x91;
   ppu.regs.ly = 0;
@@ -162,7 +163,7 @@ fn void Ppu.init(Ppu* ppu, System* system) {
   ppu.regs.wy = 0;
 }
 
-fn UInt8 Ppu.remapBGColor(Ppu* ppu, UInt8 color) {
+fn UInt8 Ppu.remapBGColor(&ppu, UInt8 color) {
   switch(color) {
     case 0b00: return ppu.regs.bg_color00;
     case 0b01: return ppu.regs.bg_color01;
@@ -174,7 +175,7 @@ fn UInt8 Ppu.remapBGColor(Ppu* ppu, UInt8 color) {
   }
 }
 
-fn UInt8 Ppu.remapSpriteColor(Ppu* ppu, UInt8 color, bool pallete2) {
+fn UInt8 Ppu.remapSpriteColor(&ppu, UInt8 color, bool pallete2) {
   switch(color) {
     case 0b00: return pallete2 ? ppu.regs.obp1_color00 : ppu.regs.obp0_color00;
     case 0b01: return pallete2 ? ppu.regs.obp1_color01 : ppu.regs.obp0_color01;
@@ -190,13 +191,20 @@ fn void Oam.print(Oam* oam) {
   io::printfn("Pos:(%02x %02x) Tile:%02x Flags:%02x", oam.x, oam.y, oam.tile, oam.flags);
 }
 
-fn void Ppu.loadSprites(Ppu* ppu) {
+fn void Ppu.loadSprites(&ppu) {
   UInt8 yPos = ppu.regs.ly;
   bool is_8_16 = ppu.regs.obj_size;
   UInt16 oam_addr = 0xFE00;
 
+  Oam[10] unordered_oam;
+
+  /*
+    OAM memory is searched in reverse order to make sprites located on the OAM first higher priority
+    This is because later they are drawn in order (0 to 40).
+  */
   for (UInt8 i = 0; i < 40; ++i) {
     Oam oam;
+    oam.id = 0;
     oam.y = ppu.system.read(oam_addr + (i * 4)/*sizeof OAM*/ + 0);
     oam.x = ppu.system.read(oam_addr + (i * 4)/*sizeof OAM*/ + 1);
     oam.tile = ppu.system.read(oam_addr + (i * 4)/*sizeof OAM*/ + 2);
@@ -205,16 +213,44 @@ fn void Ppu.loadSprites(Ppu* ppu) {
     if (oam.x == 0) continue;
     if (ppu.curr_line_sprite_num >= 10) break;
     if (oam.y <= yPos + 16 && (yPos + 16) < (oam.y + (is_8_16 ? 16 : 8))) {
-      ppu.curr_line_sprites[ppu.curr_line_sprite_num] = oam;
+      unordered_oam[ppu.curr_line_sprite_num] = oam;
       ppu.curr_line_sprite_num++;
 
       //io::printf("Found sprite (num %d) at %04x: ", ppu.curr_line_sprite_num, oam_addr + i * (8 * 4));
       //oam.print();
     }
   }
+
+  /*
+    Order using X-coord
+  */
+  for (UInt8 i = 0; i < ppu.curr_line_sprite_num; ++i) {
+    UInt8 min_idx = i;
+    for (UInt8 j = i + 1; j < ppu.curr_line_sprite_num; ++j) {
+      if (unordered_oam[i].x < unordered_oam[min_idx].x) {
+        min_idx = j;
+      }
+      if (unordered_oam[i].x == unordered_oam[min_idx].x) {
+        if (unordered_oam[i].id < unordered_oam[min_idx].id) {
+          min_idx = j;
+      }
+      }
+      Oam temp = unordered_oam[min_idx];
+      unordered_oam[min_idx] = unordered_oam[i];
+      unordered_oam[i] = temp;
+    }
+  }
+
+  /*
+    Reverse for drawing in priority
+  */
+  for (UInt8 i = 0; i < ppu.curr_line_sprite_num; ++i) {
+    ppu.curr_line_sprites[ppu.curr_line_sprite_num - i - 1] = unordered_oam[i];
+    //ppu.curr_line_sprites[i - ppu.curr_line_sprite_num- 1] = unordered_oam[i];
+  }
 }
 
-fn void Ppu.tick(Ppu* ppu, UInt64 tick) {
+fn void Ppu.tick(&ppu, UInt64 tick) {
   UInt64 step = (tick + 1) % 457;
 
   if (ppu.regs.ly >= 144) {
@@ -241,12 +277,6 @@ fn void Ppu.tick(Ppu* ppu, UInt64 tick) {
   if (step == 0) {
     //io::printfn("PPU processing line 0x%02x", ppu.regs.ly);
     // LYC == LC or LYC != LC
-    if (ppu.regs.lyc_lcdcly_coincidence) {
-      ppu.regs.lyc_ly_coincidence = ppu.regs.lyc == ppu.regs.ly;
-    }
-    else {
-      ppu.regs.lyc_ly_coincidence = ppu.regs.lyc != ppu.regs.ly;
-    }
 
     if (ppu.regs.ly < 144) {
 
@@ -290,6 +320,7 @@ fn void Ppu.tick(Ppu* ppu, UInt64 tick) {
       for (UInt8 x = 0; x < 160; ++x) {
         UInt8 color = ppu.remapBGColor(0b00);
 
+        UInt8 colourNum = 0b00;
         if (ppu.regs.bg_window_show) {
           UInt8 xPos = x + sx;
           if (window) {
@@ -318,13 +349,13 @@ fn void Ppu.tick(Ppu* ppu, UInt64 tick) {
           colourBit -= 7;
           colourBit *= -1;
 
-          UInt8 colourNum = ((data2 >> colourBit) & 0x1);
+          colourNum = ((data2 >> colourBit) & 0x1);
           colourNum <<= 1;
           colourNum |= ((data1 >> colourBit) & 0x1);
 
           //io::printfn("Color is %02x", colourNum);
-          color = ppu.remapBGColor(colourNum);
         }
+        color = ppu.remapBGColor(colourNum);
 
         if (ppu.regs.obj_show) {
           for (UInt8 i = 0; i < ppu.curr_line_sprite_num; ++i) {
@@ -347,14 +378,14 @@ fn void Ppu.tick(Ppu* ppu, UInt64 tick) {
             UInt8 data1 = ppu.system.read((UInt16)(sprite_addr + oam.tile * 16 + line * 2));
             UInt8 data2 = ppu.system.read((UInt16)(sprite_addr + oam.tile * 16 + line * 2 + 1));            
 
-            UInt8 colourNum = ((data2 >> bit) & 0x1);
-            colourNum <<= 1;
-            colourNum |= ((data1 >> bit) & 0x1);
+            UInt8 colourNum2 = ((data2 >> bit) & 0x1);
+            colourNum2 <<= 1;
+            colourNum2 |= ((data1 >> bit) & 0x1);
 
-            if (colourNum == 0b00) continue;
+            if (colourNum2 == 0b00) continue;
 
-            if (!oam.priority || color == 0b00) {
-              color = ppu.remapSpriteColor(colourNum, oam.pallette);
+            if (!oam.priority || colourNum == 0b00) {
+              color = ppu.remapSpriteColor(colourNum2, oam.pallette);
             }
           }
         }
@@ -363,7 +394,18 @@ fn void Ppu.tick(Ppu* ppu, UInt64 tick) {
       }
       //ppu.system.lcd.redraw();
     }
+
     ppu.regs.ly = (ppu.regs.ly + 1) % 154;
+    ppu.regs.lyc_ly_coincidence = ppu.regs.lyc == ppu.regs.ly;
+
+    if (ppu.regs.lyc_lcdcly_coincidence && ppu.regs.lyc_ly_coincidence) {      
+      if (ppu.regs.mode_flag != 0b11) {
+        UInt8 interrupt = ppu.system.read(0xFF0F);
+        interrupt = interrupt | (1 << 1); // LCD interrupt
+        ppu.system.write(0xFF0F, interrupt);
+      }
+    }
+
     if (ppu.regs.ly == 144) {
       ppu.system.lcd.redraw();
       UInt8 interrupt = ppu.system.read(0xFF0F);
