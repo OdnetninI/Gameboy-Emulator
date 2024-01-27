@@ -5,7 +5,10 @@ import types;
 import std::io;
 import raylib;
 
+import system;
+
 struct Lcd {
+  System* system;
   UInt8[160][144] framebuffer;
   UInt8[160*144*4] pixels;
   raylib::Image img;
@@ -14,8 +17,10 @@ struct Lcd {
 
 UInt8 zoom = 3;
 
-fn void Lcd.init(Lcd* lcd) {
-  raylib::init_window(160 * zoom, 144 * zoom, "GB");
+fn void Lcd.init(Lcd* lcd, System* system) {
+  lcd.system = system;
+
+  raylib::init_window((160 * zoom) + 160, 144 * zoom, "GB");
   
   raylib::set_target_fps(60);
 
@@ -60,14 +65,29 @@ fn void Lcd.redraw(Lcd* lcd) {
   }
   raylib::update_texture(lcd.tex, &lcd.pixels);
 
+  lcd.draw_panel();
+}
+
+fn void Lcd.draw_panel(Lcd* lcd) {
   raylib::begin_drawing();
-    raylib::clear_background(raylib::MAGENTA);
+    raylib::clear_background(raylib::LIGHTGRAY);
     //raylib::draw_texture(lcd.tex, 0, 0, raylib::RAYWHITE);
     raylib::draw_texture_pro(lcd.tex, 
       {0, 0, 160, 144}, 
       {0, 0, (float)(160 * zoom), (float)(144 * zoom)},
       {0, 0},
       0.0f, raylib::RAYWHITE);
+
+    raylib::draw_text(raylib::text_format("AF: %04X\n", lcd.system.cpu.regs.af), 160 * zoom + 2, 2, 20, raylib::BLACK);
+    raylib::draw_text(raylib::text_format("BC: %04X\n", lcd.system.cpu.regs.bc), 160 * zoom + 2, 22, 20, raylib::BLACK);
+    raylib::draw_text(raylib::text_format("DE: %04X\n", lcd.system.cpu.regs.de), 160 * zoom + 2, 42, 20, raylib::BLACK);
+    raylib::draw_text(raylib::text_format("HL: %04X\n", lcd.system.cpu.regs.hl), 160 * zoom + 2, 62, 20, raylib::BLACK);
+    raylib::draw_text(raylib::text_format("PC: %04X\n", lcd.system.cpu.regs.pc), 160 * zoom + 2, 82, 20, raylib::BLACK);
+    raylib::draw_text(raylib::text_format("SP: %04X\n", lcd.system.cpu.regs.sp), 160 * zoom + 2, 102, 20, raylib::BLACK);
+    if (lcd.system.cart.mapper) {
+      UInt32 addr = lcd.system.cart.calculateAddr(lcd.system.cpu.regs.pc);
+      raylib::draw_text(raylib::text_format("CART: %02X:%04X\n", (addr >> 16) & 0xFF, addr & 0xFFFF), 160 * zoom + 2, 122, 20, raylib::BLACK);
+    }
   raylib::end_drawing();
 }
 

@@ -37,7 +37,7 @@ struct System {
 fn void System.init(System* system) {
   system.cpu.init(system);
   system.ppu.init(system);
-  system.lcd.init();
+  system.lcd.init(system);
   system.cart.init(system);
   system.io.init(system);
   system.apu.init(system);
@@ -48,6 +48,7 @@ fn void System.init(System* system) {
 
 fn void System.tick(System* system) {
   input::updateKeys(system);
+ 
   system.cpu.tick(system.tick_counter);
   system.ppu.tick(system.tick_counter);
   system.io.tick(system.tick_counter);

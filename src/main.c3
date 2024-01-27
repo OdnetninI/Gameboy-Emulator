@@ -33,6 +33,7 @@ fn void main(String[] args) {
     debug::checkForDebugTrigger();
     if (debug::isDebugTriggered()) {
       debug::processCMD(&system);
+      system.lcd.draw_panel();
     }
     else {
       system.tick();
