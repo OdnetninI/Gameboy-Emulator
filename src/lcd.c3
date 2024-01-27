@@ -3,6 +3,7 @@ module lcd;
 import types;
 
 import std::io;
+import std::thread;
 import raylib;
 
 import system;
@@ -13,13 +14,18 @@ struct Lcd {
   UInt8[160*144*4] pixels;
   raylib::Image img;
   raylib::Texture tex;
+  Thread lcd_thread;
+  bool draw;
 }
 
 UInt8 zoom = 3;
 
 fn void Lcd.init(Lcd* lcd, System* system) {
   lcd.system = system;
+  lcd.lcd_thread.create((ThreadFn)&(Lcd.thread_run), lcd)!!;
+}
 
+fn void Lcd.thread_run(&lcd) {
   raylib::init_window((160 * zoom) + 160, 144 * zoom, "GB");
   
   raylib::set_target_fps(60);
@@ -40,10 +46,22 @@ fn void Lcd.init(Lcd* lcd, System* system) {
     }
   }
 
+  lcd.draw = false;
   lcd.redraw();
+  while (true) {
+    if (lcd.draw) {
+      lcd.draw = false;
+      lcd.draw_panel();
+    }
+  }
 }
 
 fn void Lcd.redraw(Lcd* lcd) {
+  lcd.draw = true;
+  //lcd.draw_panel();
+}
+
+fn void Lcd.draw_panel(Lcd* lcd) {
   for(UInt8 y = 0; y < 144; ++y) {
     for (UInt8 x = 0; x < 160; ++x) {
       raylib::Color color;
@@ -65,10 +83,6 @@ fn void Lcd.redraw(Lcd* lcd) {
   }
   raylib::update_texture(lcd.tex, &lcd.pixels);
 
-  lcd.draw_panel();
-}
-
-fn void Lcd.draw_panel(Lcd* lcd) {
   raylib::begin_drawing();
     raylib::clear_background(raylib::LIGHTGRAY);
     //raylib::draw_texture(lcd.tex, 0, 0, raylib::RAYWHITE);

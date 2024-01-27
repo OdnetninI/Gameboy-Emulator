@@ -39,7 +39,7 @@ fn void Wave.freq_hi_write(&wave, UInt8 value) {
   }
   wave.counter_enabled = value & 0x40;
   wave.freq_hi = value;
-  wave.freq = (wave.freq & 0x00ff) | ((value & 0x07) << 8);
+  wave.freq = (wave.freq & 0x00ff) | (((UInt16)value & 0x07) << 8);
 }
 
 fn void Wave.tick(&wave) {

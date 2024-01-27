@@ -4,9 +4,9 @@
 module apu;
 
 import std::io;
+import std::thread;
 
 import types;
-
 import system;
 
 import raylib;
@@ -54,6 +54,9 @@ struct Apu {
   apu::square::Square sc2;
   apu::wave::Wave sc3;
   apu::noise::Noise sc4;
+
+  // Thread
+  Thread apu_thread;
 }
 
 fn void Apu.init(&apu, System* system) {
@@ -75,6 +78,18 @@ fn void Apu.init(&apu, System* system) {
   raylib::set_audio_stream_buffer_size_default(8192);
   apu.audio_stream = raylib::load_audio_stream(48000, 16, 2);
   raylib::play_audio_stream(apu.audio_stream);
+
+  apu.apu_thread.create((ThreadFn)&(Apu.thread_run), apu)!!;
+}
+
+fn void Apu.thread_run(&apu) {
+  UInt64 local_timer = apu.system.tick_counter;
+  while (true) {
+    if (local_timer < apu.system.tick_counter) {
+      apu.tick(local_timer);
+      local_timer = local_timer;
+    }
+  }
 }
 
 fn UInt8 Apu.read(&apu, UInt16 addr) {
@@ -104,7 +119,7 @@ fn UInt8 Apu.read(&apu, UInt16 addr) {
 
 		case 0xff24: return apu.regs.nr50;
 		case 0xff25: return apu.regs.nr51;
-    case 0xff26: return apu.regs.nr52;
+    case 0xff26: return apu.regs.nr52 | 0x70;
     default: return 0xff;
   }
 }
@@ -136,7 +151,7 @@ fn void Apu.write(&apu, UInt16 addr, UInt8 value) {
 
 		case 0xff24: apu.regs.nr50 = value;
 		case 0xff25: apu.regs.nr51 = value;
-    case 0xff26: apu.regs.nr52 = value & 0x80;
+    case 0xff26: apu.regs.nr52 = (value & 0x80) | (apu.regs.nr52 % 0x7f);
   }
 }
 
@@ -197,7 +212,7 @@ fn void Apu.tick(&apu, UInt64 tick) {
       while(!raylib::is_audio_stream_processed(apu.audio_stream));
       raylib::update_audio_stream(apu.audio_stream, apu.audio_samples[:8192], 8192);
       apu.sample_clock = 0;
-    }
+  }
     else {
       apu.sample_clock++;
     }

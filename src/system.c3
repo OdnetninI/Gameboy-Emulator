@@ -1,6 +1,9 @@
 module system;
 
 import std::io;
+import std::time;
+import std::time::clock;
+import std::thread;
 
 import types;
 
@@ -48,12 +51,19 @@ fn void System.init(System* system) {
 
 fn void System.tick(System* system) {
   input::updateKeys(system);
- 
+
+  double c = std::time::now().to_seconds();
+
   system.cpu.tick(system.tick_counter);
   system.ppu.tick(system.tick_counter);
   system.io.tick(system.tick_counter);
-  system.apu.tick(system.tick_counter);
   system.serial.tick(system.tick_counter);
+  
+  double n = std::time::now().to_seconds() - c;
+  if (n < 0.00000023866348448687) {
+    //io::printfn("Wating %f for next tick (%f vs %f)", 0.00000023866348448687 - n, 0.00000023866348448687, n);
+    std::thread::sleep(std::time::from_float(0.00000023866348448687 - n));
+  }
 
   system.sysclk++;
   system.tick_counter++;
