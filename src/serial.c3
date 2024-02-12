@@ -1,8 +1,6 @@
 module serial;
 
 import std::io;
-import std::net;
-import std::net::tcp;
 
 import types;
 import system;
@@ -20,8 +18,6 @@ struct Serial {
 
   // Network
   bool disconected;
-  TcpServerSocket listen;
-  Socket peer;
   bool master;
   String port;
 }
@@ -31,26 +27,6 @@ fn void Serial.init(Serial* serial, System* system) {
   serial.sb = 0x00;
   serial.sc = 0x00;
   serial.step = 0x00;
-
-  if (!serial.disconected) {
-    if (serial.master) {
-      serial.listen = tcp::listen("localhost", serial.port.to_uint(), 0)!!;
-      serial.peer = tcp::accept(&serial.listen)!!;
-      serial.peer.sock.set_non_blocking(true)!!;
-      /*serial.peer.write("Hola Cliente\n")!!;
-      UInt8[256] data;
-      serial.peer.read(data[:256])!!;
-      io::printfn("Client sent: %s", data);*/
-    }
-    else {
-      serial.peer = tcp::connect("localhost", serial.port.to_uint())!!;
-      serial.peer.sock.set_non_blocking(true)!!;
-      /*UInt8[256] data;
-      serial.peer.read(data[:256])!!;
-      io::printfn("Server sent: %s", data);
-      serial.peer.write("Aloha server\n")!!;*/
-    }
-  }
 }
 
 fn UInt8 Serial.read(Serial* serial, UInt16 addr) {
@@ -73,12 +49,9 @@ fn void Serial.tick(Serial* serial, UInt64 tick_counter) {
 
   if (serial.transfer_start) {
     if (!serial.disconected) {
-      serial.peer.write("S")!!;
       UInt8[1] byte;
       byte[0] = serial.sb;
       serial.sb = 0xff;
-      serial.peer.write(byte[:1])!!;
-      //io::printfn("Sending: %c", serial.sb);
       serial.transfer_start = false;
       UInt8 _if = serial.system.read(0xFF0F);
       _if = _if | (1 << 3);
@@ -88,11 +61,11 @@ fn void Serial.tick(Serial* serial, UInt64 tick_counter) {
   else {
     if (serial.disconected) return;
     UInt8[1] byte;
-    usz! bytes_read = serial.peer.read(byte[:1]);
+    usz! bytes_read = 0x00;
     if (try usz bytes = bytes_read) {
       if (bytes > 0) {
         if (byte[0] == 'S') {
-          bytes_read = serial.peer.read(byte[:1]);
+          bytes_read = 0x00;
           serial.transfer_start = true;
           if (try usz _bytes = bytes_read) {
             if (_bytes > 0) {
