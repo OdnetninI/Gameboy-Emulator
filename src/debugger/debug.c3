@@ -71,7 +71,9 @@ fn void processCMD(System* system) {
 
   switch(cmd) {
     case "": break;
-    default: last_cmd = cmd;
+    default: 
+      last_cmd.free();
+      last_cmd = cmd;
   }
 
   UInt64 repeat = 1;
@@ -115,7 +117,8 @@ fn void processCMD(System* system) {
         }
         io::printf("Which Breakpoint?");
         String _br = io::readline()!!;
-        UInt16 br = (UInt16)libc::strtol(_br, null, 10);
+        UInt16 br = _br.to_ushort()!!;
+        _br.free();
         if (br >= breakpoints.len) {
           io::printfn("Invalid breakpoint id");
           return;
@@ -133,10 +136,12 @@ fn void processCMD(System* system) {
       case "break":
         io::printf("Which Address (XXXX): ");
         String _addr = io::readline()!!;
-        UInt16 addr = (UInt16)libc::strtol(_addr, null, 16);
+        UInt16 addr = _addr.to_ushort(16)!!;
+        _addr.free();
         io::printf("Which Mode (1 Exec, 2 Read, 3 Write, 4 Any): ");
         String _mode = io::readline()!!;
-        UInt16 mode = (UInt16)libc::strtol(_mode, null, 10);
+        UInt16 mode = _mode.to_ushort(10)!!;
+        _mode.free();
         if (mode == 0 || mode > 4) {
           io::printfn("Invalid mode");
           return;
@@ -160,26 +165,31 @@ fn void processCMD(System* system) {
       case "r":
         io::printf("Which Address (XXXX): ");
         String _addr = io::readline()!!;
-        UInt16 addr = (UInt16)libc::strtol(_addr, null, 16);
+        UInt16 addr = _addr.to_ushort(16)!!;
+        _addr.free();
         UInt8 value = system.read(addr, true);
         io::printfn("%08x:%04x = %02x", system.cart.calculateAddr(addr), addr, value);
 
       case "w":
         io::printf("Which Address (XXXX): ");
         String _addr = io::readline()!!;
-        UInt16 addr = (UInt16)libc::strtol(_addr, null, 16);
+        UInt16 addr = _addr.to_ushort(16)!!;
+        _addr.free();
         io::printf("Which Value (XX): ");
         String _value = io::readline()!!;
-        UInt8 value = (UInt8)libc::strtol(_value, null, 16);
+        UInt8 value = _value.to_uchar(16)!!;
+        _value.free();
         system.write(addr, value, true);
 
       case "freeze":
         io::printf("Which Address (XXXX): ");
         String _addr = io::readline()!!;
-        UInt16 addr = (UInt16)libc::strtol(_addr, null, 16);
+        UInt16 addr = _addr.to_ushort(16)!!;
+        _addr.free();
         io::printf("Which Value (XX): ");
         String _value = io::readline()!!;
-        UInt8 value = (UInt8)libc::strtol(_value, null, 16);
+        UInt8 value = _value.to_uchar(16)!!;
+        _value.free();
 
         frozen = true;
         frozen_addr = addr;
@@ -191,7 +201,8 @@ fn void processCMD(System* system) {
       case "j":
         io::printf("Which Address (XXXX): ");
         String _addr = io::readline()!!;
-        UInt16 addr = (UInt16)libc::strtol(_addr, null, 16);
+        UInt16 addr = _addr.to_ushort(16)!!;
+        _addr.free();
         system.cpu.regs.pc = addr;
 
       case "":
