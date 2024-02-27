@@ -1,4 +1,5 @@
 module apu::wave;
+import apu::lengthduty;
 
 import types;
 

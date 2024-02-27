@@ -1,4 +1,7 @@
 module apu::square;
+import apu::lengthduty;
+import apu::envelope;
+import apu::sweep;
 
 import types;
 

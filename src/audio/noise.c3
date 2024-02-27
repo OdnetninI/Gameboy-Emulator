@@ -1,4 +1,6 @@
 module apu::noise;
+import apu::lengthduty;
+import apu::envelope;
 
 import types;
 
