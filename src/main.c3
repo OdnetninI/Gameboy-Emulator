@@ -17,14 +17,46 @@ fn void main(String[] args) {
 
   system.init();
 
-  io::File! bios_file = io::file::open(args[1], "rb");
-  bios_file.read(system.bios[:256])!!;
-  bios_file.close()!!;
+  String bios;
+  String cart;
 
-  system.cart.open(args[2]);
+  io::printfn("\n");
+  if (args.len < 2) {
+    io::printfn("Usage: %s [bios.dmg.bin] rom.gb\n", args[0]);
+    return;
+  } else if (args.len == 2) {
+    bios = "";
+    cart = args[1];
+    io::printfn("- No BIOS provided, using DMG-0 integrated one\n");
+    
+    system.cpu.regs.a = 0x01;
+    system.cpu.regs.f = 0x00;
+    system.cpu.regs.b = 0xff;
+    system.cpu.regs.c = 0x13;
+    system.cpu.regs.d = 0x00;
+    system.cpu.regs.e = 0xc1;
+    system.cpu.regs.h = 0x84;
+    system.cpu.regs.l = 0x03;
+    system.cpu.regs.pc = 0x0100;
+    system.cpu.regs.sp = 0xfffe;
+  }
+  else {
+    bios = args[1];
+    cart = args[2];
+    io::printfn("- Using bios %s", bios);
+  }
+  
+  io::printfn("- Using rom %s\n", cart);
+
+  if (bios != "") {
+    io::File! bios_file = io::file::open(args[1], "rb");
+    bios_file.read(system.bios[:256])!!;
+    bios_file.close()!!;
+  }
+
+  system.cart.open(cart);
   system.cart.printHeader();
   system.cart.load();
-
 
   //system.bios_enabled = false;
 

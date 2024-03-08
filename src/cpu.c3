@@ -110,17 +110,6 @@ fn void Cpu.init(Cpu* cpu, System* system) {
 
   cpu.system.write(0xFF0F, 0x00);
   cpu.system.write(0xFFFF, 0x00);
-/*
-  cpu.regs.a = 0x01;
-  cpu.regs.f = 0xB0;
-  cpu.regs.b = 0x00;
-  cpu.regs.c = 0x13;
-  cpu.regs.d = 0x00;
-  cpu.regs.e = 0xD8;
-  cpu.regs.h = 0x01;
-  cpu.regs.l = 0x4D;
-  cpu.regs.sp = 0xfffe;
-  cpu.regs.pc = 0x0100;*/
 }
 
 fn void Cpu.tick(Cpu* cpu, UInt64 tick) {
