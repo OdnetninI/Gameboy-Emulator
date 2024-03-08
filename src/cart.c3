@@ -84,7 +84,7 @@ struct Cart {
   UInt8[] cart;
   UInt8[] ram;
   System* system;
-  Mapper* mapper;
+  Mapper mapper;
 }
 
 fn void Cart.init(Cart* cart, System* system) {
@@ -153,13 +153,13 @@ fn void Cart.load(Cart* cart) {
     case MAPPER_ROM: 
     case MAPPER_ROM_RAM:
     case MAPPER_ROM_RAM_BATTERY:
-      cart.mapper = mem::new(NoMapper);
+      cart.mapper = (Mapper)mem::new(NoMapper);
     case MAPPER_MCB1..MAPPER_MCB1_RAM_BATTERY: 
-      cart.mapper = mem::new(Mapper_MCB1);
+      cart.mapper = (Mapper)mem::new(Mapper_MCB1);
     case MAPPER_MCB3_TIMER_BATTERY..MAPPER_MCB3_RAM_BATTERY: 
-      cart.mapper = mem::new(Mapper_MCB3);
+      cart.mapper = (Mapper)mem::new(Mapper_MCB3);
     case MAPPER_MCB5..MAPPER_MCB5_RUMBLE_RAM_BATTERY: 
-      cart.mapper = mem::new(Mapper_MCB5);
+      cart.mapper = (Mapper)mem::new(Mapper_MCB5);
   }
 
   cart.mapper.init();
