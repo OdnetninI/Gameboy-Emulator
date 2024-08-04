@@ -37,9 +37,9 @@ fn void Noise.init(&noise) {
 fn void Noise.tick_lfsr(&noise) {
   UInt8 xor_val = (UInt8)((noise.lfsr >> 1) ^ noise.lfsr) & 0x1;
   noise.lfsr = noise.lfsr >> 1;
-  noise.lfsr = (noise.lfsr & ~0x4000) | ((UInt16)xor_val << 14);
+  noise.lfsr = (noise.lfsr & (UInt16)~0x4000) | ((UInt16)xor_val << 14);
   if (noise.width_mode != 0) {
-    noise.lfsr = (noise.lfsr & ~0x0040) | (xor_val << 5);
+    noise.lfsr = (noise.lfsr & (UInt16)~0x0040) | (xor_val << 5);
   }
 
   if ((noise.lfsr & 0x1) == 0) {

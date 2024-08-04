@@ -39,6 +39,26 @@ fn void main(String[] args) {
     system.cpu.regs.l = 0x03;
     system.cpu.regs.pc = 0x0100;
     system.cpu.regs.sp = 0xfffe;
+
+    system.write(0xff00, 0xcf, true);
+    system.write(0xff01, 0x00, true);
+    system.write(0xff02, 0x7e, true);
+    system.write(0xff04, 0x18, true);
+    system.write(0xff05, 0x00, true);
+    system.write(0xff06, 0x00, true);
+    system.write(0xff07, 0xf8, true);
+    system.write(0xff0f, 0xe1, true);
+    system.write(0xff40, 0x91, true);
+    system.write(0xff41, 0x81, true);
+    system.write(0xff42, 0x00, true);
+    system.write(0xff43, 0x00, true);
+    system.write(0xff44, 0x91, true);
+    system.write(0xff45, 0x00, true);
+    system.write(0xff46, 0xff, true);
+    system.write(0xff47, 0xfc, true);
+    system.write(0xff4a, 0x00, true);
+    system.write(0xff4b, 0x00, true);
+    system.write(0xffff, 0x00, true);
   }
   else {
     bios = args[1];

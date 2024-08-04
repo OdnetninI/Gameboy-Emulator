@@ -11,7 +11,7 @@ import mappers::mcb5;
 
 import std::io;
 
-// Mappers
+// Mapper*s
 const UInt8 MAPPER_ROM = 0x00;
 const UInt8 MAPPER_MCB1 = 0x01;
 const UInt8 MAPPER_MCB1_RAM = 0x02;
@@ -89,6 +89,7 @@ struct Cart {
 
 fn void Cart.init(Cart* cart, System* system) {
   cart.system = system;
+  cart.mapper = null;
 }
 
 fn void Cart.open(Cart* cart, String filename) {
@@ -149,6 +150,7 @@ fn void Cart.save(Cart* cart) {
 }
 
 fn void Cart.load(Cart* cart) {
+  io::printf("%s\n", cart.mapper);
   switch(cart.header.cartridge_type) {
     case MAPPER_ROM: 
     case MAPPER_ROM_RAM:
@@ -162,6 +164,7 @@ fn void Cart.load(Cart* cart) {
       cart.mapper = (Mapper)mem::new(Mapper_MCB5);
   }
 
+  io::printf("%s\n", cart.mapper);
   cart.mapper.init();
 
   switch(cart.header.ram_size) {
